@@ -3,10 +3,9 @@ import { Badge } from "../ui/badge"
 export const sections = [
   { 
     id: 'hero', 
-    subtitle: <Badge variant="outline" className="text-white border-white">S1: Feb 15</Badge>,
-    title: "It's time to build.",
-    showButton: true,
-    buttonText: 'apply to s5'
+    title: "phishforge.",
+    showButton: false,
+    buttonText: ''
   },
   { 
     id: 'about', 
