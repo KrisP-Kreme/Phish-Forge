@@ -24,7 +24,7 @@ export default function Navigation() {
             <div className="flex items-center gap-2">
                 <Shield className="w-8 h-8" style={{ color: 'var(--primary)' }} />
                 <span className="text-2xl font-bold">
-                PhishGuard
+                PhishForge
                 </span>
             </div>
             <nav className="flex justify-center space-x-8">

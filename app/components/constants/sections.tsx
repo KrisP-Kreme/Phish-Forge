@@ -2,24 +2,24 @@ import { Badge } from "../ui/badge"
 
 export const sections = [
   { 
-    id: 'hero', 
+    id: 'home', 
     subtitle: <Badge variant="outline" className="text-white border-white">S1: Feb 15</Badge>,
-    title: "It's time to build.",
+    title: "Introducing PhishForge.",
     showButton: true,
-    buttonText: 'apply to s5'
+    buttonText: 'Get Started'
   },
   { 
-    id: 'about', 
+    id: 'features', 
     title: 'Why Us?', 
     content: 'We provide resources, mentorship, and a supportive network to help you grow your projects.' 
   },
   { 
-    id: 'features', 
-    title: 'What We Offer', 
+    id: 'how-it-works', 
+    title: 'How It Works', 
     content: 'Access to expert advice, networking opportunities, and cutting-edge tools to accelerate your growth.' 
   },
   { 
-    id: 'testimonials', 
+    id: 'meet-the-devs', 
     title: 'Success Stories', 
     content: 'Hear from solo builders who have transformed their side projects into thriving businesses.' 
   },
