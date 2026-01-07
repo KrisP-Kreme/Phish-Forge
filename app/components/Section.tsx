@@ -77,26 +77,14 @@ export default function Section({ id, title, subtitle, content, isActive, showBu
               {subtitle}
             </motion.div>
           )}
-          <div className="flex items-center justify-between gap-8 max-w-5xl">
-            <motion.h2
-              className="text-4xl md:text-6xl lg:text-[5rem] xl:text-[6rem] font-bold leading-[1.1] tracking-tight"
-              initial={{ opacity: 0, y: 50 }}
-              animate={isActive ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 0.5 }}
-            >
-              {title}
-            </motion.h2>
-            {id === 'home' && (
-              <motion.img
-                src="/weldfish.png"
-                alt="weldfish"
-                className="w-56 md:w-72 lg:w-96 h-auto flex-shrink-0"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={isActive ? { opacity: 1, scale: 1 } : {}}
-                transition={{ duration: 0.5 }}
-              />
-            )}
-          </div>
+          <motion.h2
+            className="text-4xl md:text-6xl lg:text-[5rem] xl:text-[6rem] font-bold leading-[1.1] tracking-tight max-w-4xl"
+            initial={{ opacity: 0, y: 50 }}
+            animate={isActive ? { opacity: 1, y: 0 } : {}}
+            transition={{ duration: 0.5 }}
+          >
+            {title}
+          </motion.h2>
           {content && (
             <motion.p
               className="text-lg md:text-xl lg:text-2xl max-w-2xl mt-6 text-neutral-400"
@@ -124,6 +112,20 @@ export default function Section({ id, title, subtitle, content, isActive, showBu
             </motion.div>
           )}
         </div>
+        {id === 'hero' && (
+          <motion.div
+            className="flex-1 flex items-center justify-center"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={isActive ? { opacity: 1, scale: 1 } : {}}
+            transition={{ duration: 0.5, delay: 0.3 }}
+          >
+            <img
+              src="/weldfish.png"
+              alt="weldfish sticker"
+              className="w-full max-w-md h-auto"
+            />
+          </motion.div>
+        )}
       </div>
 >>>>>>> a8ce73ebb4acf43532b319bfae616d0d2ec292dc
     </section>
