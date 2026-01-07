@@ -123,16 +123,18 @@ export default function DomainForm({ onTyping }: DomainFormProps) {
 
   return (
     <div
-      className="p-3 sm:p-4 md:p-6 rounded-lg border-2 w-full h-full flex flex-col"
+      className="p-6 rounded-lg border-2 flex flex-col"
       style={{
         backgroundColor: '#f1e6c7',
         borderColor: 'var(--border)',
+        width: '1400px',  // Fixed width in virtual screen pixels (leaves ~260px margin)
+        height: '300px',  // Fixed height in virtual screen pixels
       }}
     >
-      <div className="flex flex-col gap-2 sm:gap-3">
+      <div className="flex flex-col gap-3">
         <div className="flex-shrink-0">
           <motion.h1
-            className="text-xl sm:text-2xl md:text-3xl font-bold mb-1"
+            className="text-3xl font-bold mb-1"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.1, duration: 0.5 }}
@@ -140,7 +142,7 @@ export default function DomainForm({ onTyping }: DomainFormProps) {
             Domain
           </motion.h1>
           <motion.p
-            className="text-xs sm:text-sm text-[var(--muted-foreground)]"
+            className="text-sm text-[var(--muted-foreground)]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2, duration: 0.5 }}
@@ -150,7 +152,7 @@ export default function DomainForm({ onTyping }: DomainFormProps) {
         </div>
 
         <motion.div
-          className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-shrink-0"
+          className="flex items-center gap-2 flex-shrink-0"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
@@ -162,7 +164,7 @@ export default function DomainForm({ onTyping }: DomainFormProps) {
               onChange={handleInputChange}
               onKeyPress={handleKeyPress}
               placeholder=""
-              className="w-full font-mono px-2 sm:px-3 py-2 rounded-lg border bg-transparent relative text-xs sm:text-sm outline-none transition-all"
+              className="w-full font-mono px-3 py-2 rounded-lg border bg-transparent relative text-sm outline-none transition-all"
               style={{
                 backgroundColor: 'var(--background)',
                 borderColor: 'var(--border)',
@@ -199,7 +201,7 @@ export default function DomainForm({ onTyping }: DomainFormProps) {
           <motion.button
             onClick={handleScrape}
             disabled={isLoading || !value.trim()}
-            className="text-[var(--primary-foreground)] font-semibold px-3 sm:px-4 py-2 rounded-full transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed border-2 text-xs sm:text-sm whitespace-nowrap flex-shrink-0"
+            className="text-[var(--primary-foreground)] font-semibold px-4 py-2 rounded-full transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed border-2 text-sm whitespace-nowrap flex-shrink-0"
             style={{ backgroundColor: 'var(--primary)', borderColor: 'var(--primary)' }}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -210,7 +212,7 @@ export default function DomainForm({ onTyping }: DomainFormProps) {
 
         {error && (
           <motion.div
-            className="mt-2 p-2 sm:p-3 rounded flex-shrink-0"
+            className="mt-2 p-3 rounded flex-shrink-0"
             style={{
               backgroundColor: 'var(--destructive)',
               color: 'var(--destructive-foreground)',
@@ -219,7 +221,7 @@ export default function DomainForm({ onTyping }: DomainFormProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <p className="text-xs sm:text-sm font-semibold">Error: {error}</p>
+            <p className="text-sm font-semibold">Error: {error}</p>
           </motion.div>
         )}
       </div>

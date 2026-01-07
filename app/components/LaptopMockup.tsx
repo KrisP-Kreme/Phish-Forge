@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, ReactNode } from 'react'
 import Image from 'next/image'
+import DomainForm from './DomainForm'
 
 type LaptopState = 'idle' | 'lhs' | 'rhs'
 
@@ -215,7 +216,7 @@ export default function LaptopMockup({ children, onTyping }: LaptopMockupProps) 
                 overflow: 'auto',
               }}
             >
-              {children}
+              {children || <DomainForm onTyping={onTyping} />}
             </div>
           </div>
         </div>
