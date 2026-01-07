@@ -46,7 +46,7 @@ export const sections = [
                 </div>
               </div>
               <div className="flex-shrink-0">
-                <div className="rounded-lg p-3 border w-[420px] md:w-[520px]" style={{ backgroundColor: 'var(--background)', borderColor: 'var(--border)' }}>
+                <div className="rounded-lg p-3 border w-full max-w-[420px] md:max-w-[520px] mx-auto" style={{ backgroundColor: 'var(--background)', borderColor: 'var(--border)' }}>
                   <div className="aspect-square rounded-lg overflow-hidden" style={{ backgroundColor: 'var(--accent)' }}>
                     <img 
                       src="https://media.licdn.com/dms/image/v2/D5603AQFaFiAHGH0S1w/profile-displayphoto-shrink_800_800/B56ZdTf2RoG0Ac-/0/1749452547793?e=1769644800&v=beta&t=ha0weoqz5CGxIs-n-wZbTCzdalEKS23FjdWcM2jNYck" 
@@ -79,7 +79,7 @@ export const sections = [
                 </div>
               </div>
               <div className="flex-shrink-0">
-                <div className="rounded-lg p-3 border w-[420px] md:w-[520px]" style={{ backgroundColor: 'var(--background)', borderColor: 'var(--border)' }}>
+                <div className="rounded-lg p-3 border w-full max-w-[420px] md:max-w-[520px] mx-auto" style={{ backgroundColor: 'var(--background)', borderColor: 'var(--border)' }}>
                   <div className="aspect-square rounded-lg overflow-hidden" style={{ backgroundColor: 'var(--accent)' }}>
                     <img 
                       src="https://media.licdn.com/dms/image/v2/D5603AQHgvXs3z9ctCA/profile-displayphoto-shrink_800_800/B56Zb3NGs4GoAc-/0/1747904130971?e=1769644800&v=beta&t=l45iflxyflZSSNJztffd5DZ8PQjkdmtYmPPPhJ-Yn6Y" 

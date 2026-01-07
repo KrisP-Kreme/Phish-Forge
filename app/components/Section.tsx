@@ -5,10 +5,15 @@ import { Button } from "@/components/ui/button"
 import type { SectionProps } from "../types"
 
 export default function Section({ id, title, subtitle, content, isActive, showButton, buttonText }: SectionProps) {
+  const isTallSection = id === 'meet-the-devs'
+
   return (
-    <section id={id} className="relative h-screen w-full snap-start flex flex-col justify-center p-8 md:p-16 lg:p-24">
-      <div className="flex items-center justify-between gap-12">
-        <div className="flex-1">
+    <section
+      id={id}
+      className={`relative w-full snap-start flex flex-col justify-center p-8 md:p-16 lg:p-24 ${isTallSection ? 'min-h-screen' : 'h-screen'}`}
+    >
+      <div className="flex items-start justify-between gap-12 flex-col">
+        <div className="flex-1 w-full">
           {subtitle && (
             <motion.div
               className="mb-12"
@@ -19,7 +24,7 @@ export default function Section({ id, title, subtitle, content, isActive, showBu
               {subtitle}
             </motion.div>
           )}
-          <div className="flex items-center justify-between gap-8 max-w-5xl">
+          <div className="flex items-center justify-between gap-8 w-full max-w-5xl">
             <motion.h2
               className="text-4xl md:text-6xl lg:text-[5rem] xl:text-[6rem] font-bold leading-[1.1] tracking-tight"
               initial={{ opacity: 0, y: 50 }}
