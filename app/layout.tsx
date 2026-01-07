@@ -1,7 +1,6 @@
 import './globals.css'
 import '../styles/globals.css'
 import { Inter } from 'next/font/google'
-import Navigation from './components/Navigation'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -19,7 +18,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} bg-background text-foreground`}>
+<<<<<<< HEAD
         {/* < Navigation /> */}
+=======
+>>>>>>> a8ce73ebb4acf43532b319bfae616d0d2ec292dc
         {children}
       </body>
     </html>
