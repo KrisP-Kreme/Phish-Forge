@@ -24,7 +24,7 @@ export const sections = [
       <section id="about" className="py-12 md:py-16" style={{ backgroundColor: 'var(--card)' }}>
          <div className="mx-auto px-6 w-full">
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-20 items-start w-full">
+          <div className="grid grid-cols-1 md:grid-cols-1 xl:grid-cols-2 gap-20 items-start w-full">
             {/* Profile column: Nikolas */}
             <div className="grid grid-cols-1 md:grid-cols-2 items-start gap-6 w-full">
               <div className="min-w-0 md:pr-6 md:max-w-[560px]">
