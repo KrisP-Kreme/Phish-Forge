@@ -4,7 +4,7 @@ export interface Section {
   id: string
   title: string
   subtitle?: ReactNode
-  content?: string
+  content?: ReactNode
   showButton?: boolean
   buttonText?: string
 }
