@@ -19,7 +19,9 @@ interface DomainFormProps {
   onTyping?: (isTyping: boolean) => void
 }
 
-export default function DomainForm({ onTyping }: DomainFormProps) {
+export default function DomainForm({ 
+  onTyping,
+}: DomainFormProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const hasUserTypedRef = useRef(false)
   
@@ -123,18 +125,25 @@ export default function DomainForm({ onTyping }: DomainFormProps) {
 
   return (
     <div
-      className="p-6 rounded-lg border-2 flex flex-col"
+      className="rounded-lg border-2 flex flex-col"
       style={{
         backgroundColor: '#f1e6c7',
         borderColor: 'var(--border)',
-        width: '1400px',  // Fixed width in virtual screen pixels (leaves ~260px margin)
-        height: '300px',  // Fixed height in virtual screen pixels
+        // Layout-agnostic: constrained within parent container
+        width: '100%',  // Fill parent container width
+        maxWidth: '100%', // Never exceed parent bounds
+        minWidth: 0, // Allow flex children to shrink below auto
+        padding: 'clamp(8px, 3%, 24px)',
+        gap: 'clamp(6px, 2%, 12px)',
       }}
     >
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col w-full" style={{ gap: 'clamp(6px, 2%, 12px)', minWidth: 0 }}>
         <div className="flex-shrink-0">
           <motion.h1
-            className="text-3xl font-bold mb-1"
+            className="font-bold mb-1"
+            style={{
+              fontSize: 'clamp(16px, 4vw, 28px)',
+            }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.1, duration: 0.5 }}
@@ -142,7 +151,10 @@ export default function DomainForm({ onTyping }: DomainFormProps) {
             Domain
           </motion.h1>
           <motion.p
-            className="text-sm text-[var(--muted-foreground)]"
+            className="text-[var(--muted-foreground)]"
+            style={{
+              fontSize: 'clamp(11px, 2vw, 14px)',
+            }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2, duration: 0.5 }}
@@ -152,7 +164,8 @@ export default function DomainForm({ onTyping }: DomainFormProps) {
         </div>
 
         <motion.div
-          className="flex items-center gap-2 flex-shrink-0"
+          className="flex items-center flex-shrink-0 w-full"
+          style={{ gap: 'clamp(4px, 1.5%, 8px)', minWidth: 0 }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
@@ -164,11 +177,16 @@ export default function DomainForm({ onTyping }: DomainFormProps) {
               onChange={handleInputChange}
               onKeyPress={handleKeyPress}
               placeholder=""
-              className="w-full font-mono px-3 py-2 rounded-lg border bg-transparent relative text-sm outline-none transition-all"
+              className="w-full font-mono rounded-lg border bg-transparent relative outline-none transition-all"
               style={{
                 backgroundColor: 'var(--background)',
                 borderColor: 'var(--border)',
                 color: 'var(--foreground)',
+                paddingLeft: 'clamp(6px, 1.5%, 12px)',
+                paddingRight: 'clamp(6px, 1.5%, 12px)',
+                paddingTop: 'clamp(4px, 1%, 8px)',
+                paddingBottom: 'clamp(4px, 1%, 8px)',
+                fontSize: 'clamp(10px, 1.8vw, 14px)',
               }}
               disabled={isLoading}
               autoFocus
@@ -179,7 +197,7 @@ export default function DomainForm({ onTyping }: DomainFormProps) {
                 aria-hidden
                 className="pointer-events-none select-none absolute top-1/2 transform -translate-y-1/2 font-mono text-[var(--muted-foreground)]"
                 style={{
-                  left: '12px',
+                  left: 'clamp(6px, 1.5%, 12px)',
                   whiteSpace: 'pre',
                   fontSize: 'inherit',
                 }}
@@ -201,8 +219,16 @@ export default function DomainForm({ onTyping }: DomainFormProps) {
           <motion.button
             onClick={handleScrape}
             disabled={isLoading || !value.trim()}
-            className="text-[var(--primary-foreground)] font-semibold px-4 py-2 rounded-full transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed border-2 text-sm whitespace-nowrap flex-shrink-0"
-            style={{ backgroundColor: 'var(--primary)', borderColor: 'var(--primary)' }}
+            className="text-[var(--primary-foreground)] font-semibold rounded-full transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed border-2 whitespace-nowrap flex-shrink-0"
+            style={{
+              backgroundColor: 'var(--primary)',
+              borderColor: 'var(--primary)',
+              paddingLeft: 'clamp(8px, 2%, 16px)',
+              paddingRight: 'clamp(8px, 2%, 16px)',
+              paddingTop: 'clamp(4px, 1%, 8px)',
+              paddingBottom: 'clamp(4px, 1%, 8px)',
+              fontSize: 'clamp(10px, 1.8vw, 14px)',
+            }}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
@@ -212,16 +238,18 @@ export default function DomainForm({ onTyping }: DomainFormProps) {
 
         {error && (
           <motion.div
-            className="mt-2 p-3 rounded flex-shrink-0"
+            className="rounded flex-shrink-0"
             style={{
               backgroundColor: 'var(--destructive)',
               color: 'var(--destructive-foreground)',
+              padding: 'clamp(6px, 1.5%, 12px)',
+              marginTop: 'clamp(4px, 1%, 8px)',
             }}
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <p className="text-sm font-semibold">Error: {error}</p>
+            <p className="font-semibold" style={{ fontSize: 'clamp(10px, 1.8vw, 14px)' }}>Error: {error}</p>
           </motion.div>
         )}
       </div>

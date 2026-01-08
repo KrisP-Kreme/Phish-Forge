@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, ReactNode } from 'react'
 import Image from 'next/image'
 import DomainForm from './DomainForm'
 
-type LaptopState = 'idle' | 'lhs' | 'rhs'
+type LaptopState = 'idle' | 'lhs' | 'rhs' | 'thinking'
 
 interface LaptopMockupProps {
   children: ReactNode
@@ -16,6 +16,8 @@ export default function LaptopMockup({ children, onTyping }: LaptopMockupProps) 
   const containerRef = useRef<HTMLDivElement>(null)
   const screenRef = useRef<HTMLDivElement>(null)
   const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const thinkingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const thinkingShownRef = useRef(false)
   
   // Track state in refs only - no React state batching interference
   const laptopStateRef = useRef<LaptopState>('idle')
@@ -41,27 +43,28 @@ export default function LaptopMockup({ children, onTyping }: LaptopMockupProps) 
       clearTimeout(idleTimeoutRef.current)
     }
 
-    const comingFromIdle = !isTypingRef.current
-
-    // Mark that we're typing
-    if (!isTypingRef.current) {
+    // If currently in thinking state, transition to typing state
+    if (laptopStateRef.current === 'thinking') {
+      const nextState = lastStateRef.current === 'lhs' ? 'rhs' : 'lhs'
+      lastStateRef.current = nextState
+      laptopStateRef.current = nextState
       isTypingRef.current = true
+      updateImage()
+      onTyping?.(true)
+      // Return to idle after 500ms of no typing
+      idleTimeoutRef.current = setTimeout(() => {
+        returnToIdle()
+      }, 500)
+      return
     }
 
-    // Toggle between lhs and rhs
+    isTypingRef.current = true
     const nextState = lastStateRef.current === 'lhs' ? 'rhs' : 'lhs'
     lastStateRef.current = nextState
     laptopStateRef.current = nextState
 
-    // If coming from idle, use requestAnimationFrame for gentler transition
-    if (comingFromIdle) {
-      requestAnimationFrame(() => {
-        updateImage()
-      })
-    } else {
-      // For subsequent keystrokes, update immediately
-      updateImage()
-    }
+    // Update immediately
+    updateImage()
 
     onTyping?.(true)
 
@@ -123,12 +126,22 @@ export default function LaptopMockup({ children, onTyping }: LaptopMockupProps) 
     preloadImage('/idle.png')
     preloadImage('/lhs.png')
     preloadImage('/rhs.png')
+    preloadImage('/think.png')
+  }, [])
+
+  useEffect(() => {
+    // Show thinking state on initial mount only
+    laptopStateRef.current = 'thinking'
+    updateImage()
   }, [])
 
   useEffect(() => {
     return () => {
       if (idleTimeoutRef.current) {
         clearTimeout(idleTimeoutRef.current)
+      }
+      if (thinkingTimeoutRef.current) {
+        clearTimeout(thinkingTimeoutRef.current)
       }
     }
   }, [])
@@ -164,6 +177,8 @@ export default function LaptopMockup({ children, onTyping }: LaptopMockupProps) 
         return '/lhs.png'
       case 'rhs':
         return '/rhs.png'
+      case 'thinking':
+        return '/think.png'
       case 'idle':
       default:
         return '/idle.png'
@@ -171,9 +186,22 @@ export default function LaptopMockup({ children, onTyping }: LaptopMockupProps) 
   })()
 
   return (
-    <div className="w-full flex flex-col items-center justify-center px-4 sm:px-6 md:px-8" ref={containerRef}>
-      {/* Laptop mockup container - responsive sizing */}
-      <div className="relative w-full max-w-4xl">
+    <>
+      <style>{`
+        @keyframes slideUpIn {
+          from {
+            transform: translateY(100px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
+      <div className="w-full flex flex-col items-center justify-center px-4 sm:px-6 md:px-8" ref={containerRef}>
+        {/* Laptop mockup container - responsive sizing */}
+        <div className="relative w-full max-w-4xl">
         <Image
           src={imageSrc}
           alt="Laptop mockup"
@@ -185,7 +213,7 @@ export default function LaptopMockup({ children, onTyping }: LaptopMockupProps) 
           style={{ transition: 'opacity 100ms ease-out' }}
         />
 
-        {/* Virtual screen overlay - scales to fit laptop screen at any resolution */}
+        {/* Virtual screen overlay - fixed 1920x1080, scales via transform */}
         <div
           ref={screenRef}
           className="absolute inset-0"
@@ -193,27 +221,28 @@ export default function LaptopMockup({ children, onTyping }: LaptopMockupProps) 
             width: '1920px',
             height: '1080px',
             transformOrigin: 'top left',
-            pointerEvents: 'none',
+            pointerEvents: 'none', // Allow pointer events through to content
+            animation: 'slideUpIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
           }}
         >
-          {/* Screen content area - positioned within virtual screen */}
+          {/* Screen content area - positioned within virtual screen bounds */}
           <div
             className="absolute flex items-center justify-center"
             style={{
-              // Positioned inside the laptop screen area (proportional to 1920x1080)
-              // Adjusted to match actual screen position in the mockup
-              top: '180px',      // ~9.4% - screen starts higher
-              left: '100px',     // ~5.2% of 1920
-              right: '100px',    // ~5.2% of 1920
-              bottom: '400px',   // ~37% - more space for keyboard
-              pointerEvents: 'auto',
-              overflow: 'hidden',
+              // Positioned inside the laptop screen area with proportional insets
+              top: '180px',        // ~9.4% from top
+              left: '100px',       // ~5.2% from left
+              right: '100px',      // ~5.2% from right
+              bottom: '400px',     // ~37% from bottom (keyboard space)
+              pointerEvents: 'auto', // Re-enable pointer events for content
             }}
           >
+            {/* Screen content container - controls form sizing and centering */}
             <div
-              className="w-full h-full flex items-center justify-center"
+              className="flex items-center justify-center w-full h-full"
               style={{
-                overflow: 'auto',
+                maxWidth: '90%', // Leave padding inside screen
+                maxHeight: '100%',
               }}
             >
               {children || <DomainForm onTyping={onTyping} />}
@@ -222,5 +251,6 @@ export default function LaptopMockup({ children, onTyping }: LaptopMockupProps) 
         </div>
       </div>
     </div>
+    </>
   )
 }
