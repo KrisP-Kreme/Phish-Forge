@@ -15,7 +15,74 @@ export const sections = [
   { 
     id: 'how-it-works', 
     title: 'How It Works', 
-    content: 'Access to expert advice, networking opportunities, and cutting-edge tools to accelerate your growth.' 
+        content: (
+          <section id="about" className="py-12 md:py-16" style={{ backgroundColor: 'var(--card)' }}>
+             <div className="mx-auto px-6 w-full relative">
+
+              <div className="grid md:grid-cols-3 gap-8 items-start">
+                {/* Step 1 - Sticky Note */}
+                <div className="flex justify-center">
+                  <div className="sticky-note relative">
+                      <div className="note-tape tape-center" aria-hidden />
+                    <div className="flex items-start gap-4">
+                      <div>
+                        <h3 className="text-4xl font-bold mb-10 indent-20">Input a Domain</h3>
+                        <ul>
+                          <li className="text-[var(--muted-foreground)] text-2xl">- Find a domain to test and input its address.</li>
+                          <br></br>
+                          <li className="text-[var(--muted-foreground)] text-2xl">- This will be the target for the phishing simulation.</li>
+                          <br></br>
+                          <li className="text-[var(--muted-foreground)] text-2xl">- This will be the target for the phishing simulation.</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* arrows removed per request */}
+                </div>
+
+                {/* Step 2 - Sticky Note */}
+                <div className="flex justify-center">
+                  <div className="sticky-note relative">
+                      <div className="note-tape tape-left" aria-hidden />
+                      <div className="note-tape tape-right" aria-hidden />
+                    <div className="flex items-start gap-4">
+                      <div>
+                        <h3 className="text-4xl font-bold mb-12 indent-20">Analyze Results</h3>
+                        <ul>
+                          <li className="text-[var(--muted-foreground)] text-2xl">- Get detailed insights into how users interact with emails.</li>
+                          <br></br>
+                          <li className="text-[var(--muted-foreground)] text-2xl">- Identify vulnerable areas and adapt.</li>
+                          <br></br>
+                          <li className="text-[var(--muted-foreground)] text-2xl">- Identify vulnerable areas and adapt.</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 3 - Sticky Note */}
+                <div className="flex justify-center">
+                  <div className="sticky-note relative">
+                      <div className="note-tape tape-center" aria-hidden />
+                    <div className="flex items-start gap-4">
+                      <div>
+                        <h3 className="text-4xl font-bold mb-10 indent-8">Train & Improve</h3>
+                        <ul>
+                          <li className="text-[var(--muted-foreground)] text-2xl">- Use insights to create targeted training. </li>
+                          <br></br>
+                          <li className="text-[var(--muted-foreground)] text-2xl">- Improve your organization's security awareness.</li>
+                          <br></br>
+                          <li className="text-[var(--muted-foreground)] text-2xl">- Improve your organization's security awareness.</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        )
   },
   { 
     id: 'meet-the-devs', 
