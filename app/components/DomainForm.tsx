@@ -133,16 +133,30 @@ export default function DomainForm({
         width: '100%',  // Fill parent container width
         maxWidth: '100%', // Never exceed parent bounds
         minWidth: 0, // Allow flex children to shrink below auto
-        padding: 'clamp(8px, 3%, 24px)',
-        gap: 'clamp(6px, 2%, 12px)',
+        padding: 'clamp(8px, 2.5%, 20px)',
+        gap: 'clamp(10px, 3%, 18px)',
+        border: '32px solid #d7c8b5',
+        borderRadius: '12px',
+        boxShadow: 'inset 0 0 20px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 0, 0, 0.5)',
+        background: '#1a1a1a',
       }}
     >
-      <div className="flex flex-col w-full" style={{ gap: 'clamp(6px, 2%, 12px)', minWidth: 0 }}>
+      <div
+        style={{
+          width: '100%',
+          background: '#0d4620',
+          borderRadius: '6px',
+          padding: '28px',
+          boxShadow: 'inset 0 2px 5px rgba(0, 0, 0, 0.5)',
+        }}
+      >
+      <div className="flex flex-col w-full" style={{ gap: 'clamp(10px, 2.5%, 16px)', minWidth: 0, color: '#e8e8d0', fontFamily: 'Courier New, monospace' }}>
         <div className="flex-shrink-0">
           <motion.h1
             className="font-bold mb-1"
             style={{
-              fontSize: 'clamp(16px, 4vw, 28px)',
+              fontSize: 'clamp(20px, 5vw, 36px)',
+              color: '#2d2d2d',
             }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -153,7 +167,8 @@ export default function DomainForm({
           <motion.p
             className="text-[var(--muted-foreground)]"
             style={{
-              fontSize: 'clamp(11px, 2vw, 14px)',
+              fontSize: 'clamp(13px, 2.5vw, 18px)',
+              color: '#555555',
             }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -165,7 +180,7 @@ export default function DomainForm({
 
         <motion.div
           className="flex items-center flex-shrink-0 w-full"
-          style={{ gap: 'clamp(4px, 1.5%, 8px)', minWidth: 0 }}
+          style={{ gap: 'clamp(8px, 2%, 12px)', minWidth: 0 }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
@@ -179,14 +194,15 @@ export default function DomainForm({
               placeholder=""
               className="w-full font-mono rounded-lg border bg-transparent relative outline-none transition-all"
               style={{
-                backgroundColor: 'var(--background)',
-                borderColor: 'var(--border)',
-                color: 'var(--foreground)',
-                paddingLeft: 'clamp(6px, 1.5%, 12px)',
-                paddingRight: 'clamp(6px, 1.5%, 12px)',
-                paddingTop: 'clamp(4px, 1%, 8px)',
-                paddingBottom: 'clamp(4px, 1%, 8px)',
-                fontSize: 'clamp(10px, 1.8vw, 14px)',
+                backgroundColor: '#f5f1e8',
+                borderColor: '#2d2d2d',
+                borderWidth: '2px',
+                color: '#1a1a1a',
+                paddingLeft: 'clamp(10px, 2%, 16px)',
+                paddingRight: 'clamp(10px, 2%, 16px)',
+                paddingTop: 'clamp(8px, 1.5%, 12px)',
+                paddingBottom: 'clamp(8px, 1.5%, 12px)',
+                fontSize: 'clamp(12px, 2.2vw, 18px)',
               }}
               disabled={isLoading}
               autoFocus
@@ -197,15 +213,16 @@ export default function DomainForm({
                 aria-hidden
                 className="pointer-events-none select-none absolute top-1/2 transform -translate-y-1/2 font-mono text-[var(--muted-foreground)]"
                 style={{
-                  left: 'clamp(6px, 1.5%, 12px)',
+                  left: 'clamp(10px, 2%, 16px)',
                   whiteSpace: 'pre',
                   fontSize: 'inherit',
+                  color: '#999999',
                 }}
               >
                 {displayValue}
                 <span
                   style={{
-                    color: 'var(--primary)',
+                    color: '#1a1a1a',
                     opacity: cursorVisible ? 1 : 0,
                     transition: 'opacity 300ms ease',
                   }}
@@ -221,13 +238,16 @@ export default function DomainForm({
             disabled={isLoading || !value.trim()}
             className="text-[var(--primary-foreground)] font-semibold rounded-full transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed border-2 whitespace-nowrap flex-shrink-0"
             style={{
-              backgroundColor: 'var(--primary)',
-              borderColor: 'var(--primary)',
-              paddingLeft: 'clamp(8px, 2%, 16px)',
-              paddingRight: 'clamp(8px, 2%, 16px)',
-              paddingTop: 'clamp(4px, 1%, 8px)',
-              paddingBottom: 'clamp(4px, 1%, 8px)',
-              fontSize: 'clamp(10px, 1.8vw, 14px)',
+              backgroundColor: '#e8e8d0',
+              borderColor: '#2d2d2d',
+              color: '#1a1a1a',
+              paddingLeft: 'clamp(12px, 2.5%, 20px)',
+              paddingRight: 'clamp(12px, 2.5%, 20px)',
+              paddingTop: 'clamp(8px, 1.5%, 12px)',
+              paddingBottom: 'clamp(8px, 1.5%, 12px)',
+              fontSize: 'clamp(12px, 2.2vw, 18px)',
+              fontWeight: 'bold',
+              borderWidth: '2px',
             }}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -242,16 +262,17 @@ export default function DomainForm({
             style={{
               backgroundColor: 'var(--destructive)',
               color: 'var(--destructive-foreground)',
-              padding: 'clamp(6px, 1.5%, 12px)',
-              marginTop: 'clamp(4px, 1%, 8px)',
+              padding: 'clamp(10px, 2%, 16px)',
+              marginTop: 'clamp(8px, 1.5%, 12px)',
             }}
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <p className="font-semibold" style={{ fontSize: 'clamp(10px, 1.8vw, 14px)' }}>Error: {error}</p>
+            <p className="font-semibold" style={{ fontSize: 'clamp(12px, 2.2vw, 18px)' }}>Error: {error}</p>
           </motion.div>
         )}
+      </div>
       </div>
     </div>
   )

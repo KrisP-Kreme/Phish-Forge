@@ -230,23 +230,14 @@ export default function LaptopMockup({ children, onTyping }: LaptopMockupProps) 
             className="absolute flex items-center justify-center"
             style={{
               // Positioned inside the laptop screen area with proportional insets
-              top: '180px',        // ~9.4% from top
-              left: '100px',       // ~5.2% from left
-              right: '100px',      // ~5.2% from right
-              bottom: '400px',     // ~37% from bottom (keyboard space)
+              top: '10%',
+              left: '6%',
+              right: '59%',
+              bottom: '60%',
               pointerEvents: 'auto', // Re-enable pointer events for content
             }}
           >
-            {/* Screen content container - controls form sizing and centering */}
-            <div
-              className="flex items-center justify-center w-full h-full"
-              style={{
-                maxWidth: '90%', // Leave padding inside screen
-                maxHeight: '100%',
-              }}
-            >
-              {children || <DomainForm onTyping={onTyping} />}
-            </div>
+            {children || <DomainForm onTyping={onTyping} />}
           </div>
         </div>
       </div>
