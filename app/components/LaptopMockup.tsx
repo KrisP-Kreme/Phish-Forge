@@ -63,7 +63,7 @@ export default function LaptopMockup({ children, onTyping }: LaptopMockupProps) 
     lastStateRef.current = nextState
     laptopStateRef.current = nextState
 
-    // Update immediately
+    // Update immediately - images are preloaded
     updateImage()
 
     onTyping?.(true)
@@ -119,14 +119,24 @@ export default function LaptopMockup({ children, onTyping }: LaptopMockupProps) 
   useEffect(() => {
     // Preload all images at mount to prevent flashing
     const preloadImage = (src: string) => {
-      const img = new window.Image()
-      img.src = src
+      return new Promise<void>((resolve) => {
+        const img = new window.Image()
+        img.onload = () => resolve()
+        img.onerror = () => resolve() // Resolve even on error to not block
+        img.src = src
+      })
     }
     
-    preloadImage('/idle.png')
-    preloadImage('/lhs.png')
-    preloadImage('/rhs.png')
-    preloadImage('/think.png')
+    // Wait for all images to load before marking as ready
+    Promise.all([
+      preloadImage('/idle.png'),
+      preloadImage('/lhs.png'),
+      preloadImage('/rhs.png'),
+      preloadImage('/think.png')
+    ]).then(() => {
+      // Mark images as loaded so first keypress can change images smoothly
+      thinkingShownRef.current = true
+    })
   }, [])
 
   useEffect(() => {
