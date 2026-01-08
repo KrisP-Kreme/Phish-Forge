@@ -130,9 +130,22 @@ export default function LaptopMockup({ children, onTyping }: LaptopMockupProps) 
   }, [])
 
   useEffect(() => {
-    // Show thinking state on initial mount only
+    // Show thinking state on initial mount for 1 second
     laptopStateRef.current = 'thinking'
     updateImage()
+    
+    // Transition to idle after 1 second
+    thinkingTimeoutRef.current = setTimeout(() => {
+      laptopStateRef.current = 'idle'
+      thinkingShownRef.current = true
+      updateImage()
+    }, 1000)
+    
+    return () => {
+      if (thinkingTimeoutRef.current) {
+        clearTimeout(thinkingTimeoutRef.current)
+      }
+    }
   }, [])
 
   useEffect(() => {
@@ -198,6 +211,25 @@ export default function LaptopMockup({ children, onTyping }: LaptopMockupProps) 
             opacity: 1;
           }
         }
+        
+        .dirty-bezel::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          background-image: 
+            radial-gradient(ellipse 80px 40px at 10% 15%, rgba(0, 0, 0, 0.08) 0%, transparent 50%),
+            radial-gradient(ellipse 60px 30px at 90% 25%, rgba(0, 0, 0, 0.06) 0%, transparent 50%),
+            radial-gradient(ellipse 50px 35px at 20% 80%, rgba(0, 0, 0, 0.07) 0%, transparent 50%),
+            radial-gradient(ellipse 70px 45px at 85% 70%, rgba(0, 0, 0, 0.05) 0%, transparent 50%),
+            radial-gradient(circle 3px at 15% 20%, rgba(0, 0, 0, 0.3), transparent 100%),
+            radial-gradient(circle 2px at 75% 35%, rgba(0, 0, 0, 0.25), transparent 100%),
+            radial-gradient(circle 2.5px at 25% 75%, rgba(0, 0, 0, 0.28), transparent 100%),
+            radial-gradient(circle 2px at 70% 60%, rgba(0, 0, 0, 0.2), transparent 100%);
+          border-radius: 12px;
+          border: 32px solid transparent;
+          box-shadow: inset 0 0 0 32px;
+        }
       `}</style>
       <div className="w-full flex flex-col items-center justify-center px-4 sm:px-6 md:px-8" ref={containerRef}>
         {/* Laptop mockup container - responsive sizing */}
@@ -237,7 +269,7 @@ export default function LaptopMockup({ children, onTyping }: LaptopMockupProps) 
               pointerEvents: 'auto', // Re-enable pointer events for content
             }}
           >
-            {children || <DomainForm onTyping={onTyping} />}
+            {children || <DomainForm onTyping={onTyping} isThinking={laptopStateRef.current === 'thinking'} />}
           </div>
         </div>
       </div>
