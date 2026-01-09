@@ -103,12 +103,26 @@ export default function DomainForm({
     setError('')
 
     try {
-      // TODO: Add API call to process domain
-      console.log('Processing domain:', value)
-      // Simulated delay
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Call the DNS lookup API
+      const response = await fetch('/api/dns', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          domain: value.trim(),
+          recordTypes: ['MX', 'TXT', 'NS'],
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to perform DNS lookup')
+      }
+
+      const data = await response.json()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to process domain')
+      setError(err instanceof Error ? err.message : 'Failed to perform DNS lookup')
     } finally {
       setIsLoading(false)
     }

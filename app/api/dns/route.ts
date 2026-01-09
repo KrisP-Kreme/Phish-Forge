@@ -1,0 +1,169 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+/**
+ * Formats DNS results for pretty console logging
+ */
+function formatDNSResults(result: any): string {
+  if (!result.success) {
+    return `❌ DNS Lookup Failed for ${result.domain}: ${result.error}`;
+  }
+
+  const { domain, data, timestamp } = result;
+  let output = `\n${'═'.repeat(70)}\n`;
+  output += `📊 DNS LOOKUP RESULTS\n`;
+  output += `${'═'.repeat(70)}\n`;
+  output += `Domain: ${domain}\n`;
+  output += `Timestamp: ${timestamp}\n`;
+  output += `${'─'.repeat(70)}\n\n`;
+
+  // Format MX Records
+  if (data.MX && Array.isArray(data.MX)) {
+    output += `📧 MAIL EXCHANGE (MX) RECORDS\n`;
+    output += `${'─'.repeat(70)}\n`;
+    data.MX.forEach((mx: any) => {
+      output += `  Priority: ${mx.priority} → ${mx.exchange}\n`;
+    });
+    output += `\n`;
+  } else if (data.MX?.error) {
+    output += `📧 MAIL EXCHANGE (MX): ${data.MX.error}\n\n`;
+  }
+
+  // Format TXT Records
+  if (data.TXT && Array.isArray(data.TXT)) {
+    output += `📝 TEXT (TXT) RECORDS\n`;
+    output += `${'─'.repeat(70)}\n`;
+    data.TXT.forEach((txt: any, index: number) => {
+      const txtContent = Array.isArray(txt) ? txt.join('') : txt;
+      output += `  [${index + 1}] ${txtContent}\n`;
+    });
+    output += `\n`;
+  } else if (data.TXT?.error) {
+    output += `📝 TEXT (TXT): ${data.TXT.error}\n\n`;
+  }
+
+  output += `${'═'.repeat(70)}\n`;
+  return output;
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { domain, recordTypes = ['MX', 'TXT', 'NS'], comprehensive = false } = await request.json();
+
+    if (!domain) {
+      return NextResponse.json(
+        { error: 'Domain is required' },
+        { status: 400 }
+      );
+    }
+
+    // Dynamically import the dns-lookup script
+    const { performDNSLookup, performComprehensiveDNSLookup } = await import(
+      '@/scripts/dns-lookup.js'
+    );
+
+    let result: any;
+    if (comprehensive || Array.isArray(recordTypes)) {
+      // Use custom record types or default to MX, TXT, NS
+      const types = Array.isArray(recordTypes) ? recordTypes : ['MX', 'TXT', 'NS'];
+      result = await performComprehensiveDNSLookup(domain, types);
+    } else {
+      result = await performDNSLookup(domain, recordTypes);
+    }
+
+    // Log formatted output
+    console.log(formatDNSResults(result));
+
+    // Translate email providers
+    const { translateEmailProviders } = await import(
+      '@/scripts/email-provider-translator.js'
+    );
+    const providerAnalysis: any = translateEmailProviders(result.data);
+    console.log('\n📨 EMAIL PROVIDER ANALYSIS\n' + '═'.repeat(70));
+    console.log('Email Host:', providerAnalysis.emailHost.provider);
+    console.log('MX Servers:', providerAnalysis.emailHost.mxServers.join(', '));
+
+    if (providerAnalysis.security.detected) {
+      console.log('\n🔒 SECURITY SERVICES DETECTED');
+      providerAnalysis.security.services.forEach(
+        (service: any) => {
+          console.log(`  • ${service.name} (${service.type})`);
+        }
+      );
+    }
+
+    if (providerAnalysis.marketing.detected) {
+      console.log('\n📬 MARKETING SERVICES DETECTED');
+      providerAnalysis.marketing.services.forEach(
+        (service: any) => {
+          console.log(`  • ${service.name} (${service.type})`);
+        }
+      );
+    }
+
+    console.log('\n🌐 DNS PROVIDER');
+    console.log('Provider:', providerAnalysis.dnsProvider.provider);
+    console.log('Nameservers:', providerAnalysis.dnsProvider.nameservers.join(', '));
+
+    if (providerAnalysis.authorizedSenders.providers.length > 0) {
+      console.log(
+        '\n📨 Authorized Senders:',
+        providerAnalysis.authorizedSenders.providers.join(', ')
+      );
+    }
+    console.log('═'.repeat(70) + '\n');
+
+    return NextResponse.json({
+      ...result,
+      providerAnalysis,
+    });
+  } catch (error) {
+    console.error('DNS API Error:', error);
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error ? error.message : 'DNS lookup failed',
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams;
+  const domain = searchParams.get('domain');
+  const recordType = searchParams.get('recordType') || 'A';
+  const comprehensive = searchParams.get('comprehensive') === 'true';
+
+  if (!domain) {
+    return NextResponse.json(
+      { error: 'Domain query parameter is required' },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const { performDNSLookup, performComprehensiveDNSLookup } = await import(
+      '@/scripts/dns-lookup.js'
+    );
+
+    let result;
+    if (comprehensive) {
+      const types = recordType.split(',').map((t) => t.trim());
+      result = await performComprehensiveDNSLookup(domain, types);
+    } else {
+      result = await performDNSLookup(domain, recordType);
+    }
+
+    console.log('DNS Lookup Result:', JSON.stringify(result, null, 2));
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error('DNS API Error:', error);
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error ? error.message : 'DNS lookup failed',
+      },
+      { status: 500 }
+    );
+  }
+}
