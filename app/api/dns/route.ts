@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+interface DomainCheckResult {
+  exists: boolean;
+  status: string;
+  domain: string;
+  error?: string;
+  timestamp: string;
+}
+
 /**
  * Formats DNS results for pretty console logging
  */
@@ -57,9 +65,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Dynamically import the dns-lookup script
-    const { performDNSLookup, performComprehensiveDNSLookup } = await import(
+    const { checkDomainExists, performDNSLookup, performComprehensiveDNSLookup } = await import(
       '@/scripts/dns-lookup.js'
     );
+
+    // First, check if domain exists before running any other scripts
+    console.log(`\n🔍 PRE-VALIDATION: Checking domain existence...`);
+    const existenceCheck = await checkDomainExists(domain) as DomainCheckResult;
+    
+    if (!existenceCheck.exists) {
+      console.error(`❌ Domain validation failed: ${existenceCheck.error}`);
+      return NextResponse.json(
+        { 
+          error: 'Domain does not exist or cannot be resolved',
+          domainCheck: existenceCheck,
+        },
+        { status: 400 }
+      );
+    }
+
+    console.log(`✅ Domain exists: ${existenceCheck.domain} (Status: ${existenceCheck.status})`);
 
     let result: any;
     if (comprehensive || Array.isArray(recordTypes)) {
@@ -74,47 +99,18 @@ export async function POST(request: NextRequest) {
     console.log(formatDNSResults(result));
 
     // Translate email providers
-    const { translateEmailProviders } = await import(
-      '@/scripts/email-provider-translator.js'
-    );
+    const { translateEmailProviders, generateJSONReport, formatReportForConsole } =
+      await import('@/scripts/email-provider-translator.js');
     const providerAnalysis: any = translateEmailProviders(result.data);
-    console.log('\n📨 EMAIL PROVIDER ANALYSIS\n' + '═'.repeat(70));
-    console.log('Email Host:', providerAnalysis.emailHost.provider);
-    console.log('MX Servers:', providerAnalysis.emailHost.mxServers.join(', '));
+    const jsonReport: any = generateJSONReport(providerAnalysis);
 
-    if (providerAnalysis.security.detected) {
-      console.log('\n🔒 SECURITY SERVICES DETECTED');
-      providerAnalysis.security.services.forEach(
-        (service: any) => {
-          console.log(`  • ${service.name} (${service.type})`);
-        }
-      );
-    }
-
-    if (providerAnalysis.marketing.detected) {
-      console.log('\n📬 MARKETING SERVICES DETECTED');
-      providerAnalysis.marketing.services.forEach(
-        (service: any) => {
-          console.log(`  • ${service.name} (${service.type})`);
-        }
-      );
-    }
-
-    console.log('\n🌐 DNS PROVIDER');
-    console.log('Provider:', providerAnalysis.dnsProvider.provider);
-    console.log('Nameservers:', providerAnalysis.dnsProvider.nameservers.join(', '));
-
-    if (providerAnalysis.authorizedSenders.providers.length > 0) {
-      console.log(
-        '\n📨 Authorized Senders:',
-        providerAnalysis.authorizedSenders.providers.join(', ')
-      );
-    }
-    console.log('═'.repeat(70) + '\n');
+    // Log formatted report
+    console.log(formatReportForConsole(jsonReport));
 
     return NextResponse.json({
-      ...result,
-      providerAnalysis,
+      domainCheck: existenceCheck,
+      dnsRecords: result,
+      report: jsonReport,
     });
   } catch (error) {
     console.error('DNS API Error:', error);

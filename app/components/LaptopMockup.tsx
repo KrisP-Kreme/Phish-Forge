@@ -9,9 +9,10 @@ type LaptopState = 'idle' | 'lhs' | 'rhs' | 'thinking'
 interface LaptopMockupProps {
   children: ReactNode
   onTyping?: (isTyping: boolean) => void
+  onError?: (error: string) => void
 }
 
-export default function LaptopMockup({ children, onTyping }: LaptopMockupProps) {
+export default function LaptopMockup({ children, onTyping, onError }: LaptopMockupProps) {
   const [, forceUpdate] = useState({})
   const containerRef = useRef<HTMLDivElement>(null)
   const screenRef = useRef<HTMLDivElement>(null)
@@ -272,14 +273,14 @@ export default function LaptopMockup({ children, onTyping }: LaptopMockupProps) 
             className="absolute flex items-center justify-center"
             style={{
               // Positioned inside the laptop screen area with proportional insets
-              top: '10%',
+              top: '15%',
               left: '6%',
               right: '59%',
               bottom: '60%',
               pointerEvents: 'auto', // Re-enable pointer events for content
             }}
           >
-            {children || <DomainForm onTyping={onTyping} isThinking={laptopStateRef.current === 'thinking'} />}
+            {children || <DomainForm onTyping={onTyping} isThinking={laptopStateRef.current === 'thinking'} onError={onError} />}
           </div>
         </div>
       </div>

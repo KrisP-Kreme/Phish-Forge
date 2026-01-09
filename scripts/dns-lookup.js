@@ -1,6 +1,65 @@
 const { promises: dnsPromises } = require('dns');
 
 /**
+ * Checks if a domain exists by performing an SOA query (similar to dig +noall +comments status)
+ * This is a lightweight check to validate domain existence before running comprehensive lookups
+ * @param {string} domain - The domain to check
+ * @returns {Promise<Object>} Object with { exists: boolean, status: string, domain: string }
+ */
+async function checkDomainExists(domain) {
+  try {
+    // Clean and normalize domain
+    let cleanDomain = domain
+      .replace(/^https?:\/\//, '')
+      .replace(/\/$/, '')
+      .split('/')[0]
+      .replace(/^www\./, '');
+
+    console.log(`Checking if domain exists: ${cleanDomain}...`);
+
+    // Try SOA query first (most reliable for domain existence)
+    try {
+      await dnsPromises.resolveSoa(cleanDomain);
+      return {
+        exists: true,
+        status: 'NOERROR',
+        domain: cleanDomain,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (soaError) {
+      // If SOA fails, try NS query as fallback
+      try {
+        await dnsPromises.resolveNs(cleanDomain);
+        return {
+          exists: true,
+          status: 'NOERROR',
+          domain: cleanDomain,
+          timestamp: new Date().toISOString(),
+        };
+      } catch (nsError) {
+        // If both fail, domain doesn't exist
+        return {
+          exists: false,
+          status: 'NXDOMAIN',
+          domain: cleanDomain,
+          error: 'Domain does not exist or cannot be resolved',
+          timestamp: new Date().toISOString(),
+        };
+      }
+    }
+  } catch (error) {
+    console.error(`Domain existence check error for ${domain}:`, error.message);
+    return {
+      exists: false,
+      status: 'ERROR',
+      domain,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    };
+  }
+}
+
+/**
  * Performs a DNS lookup for a given domain using Node.js built-in DNS module
  * @param {string} domain - The domain to look up
  * @param {string} recordType - The DNS record type (A, MX, NS, TXT, etc.)
@@ -168,6 +227,7 @@ async function performComprehensiveDNSLookup(domain, recordTypes = ['A', 'AAAA',
 
 // Export functions for use in API routes
 module.exports = {
+  checkDomainExists,
   performDNSLookup,
   performComprehensiveDNSLookup,
 };

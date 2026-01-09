@@ -646,41 +646,98 @@ function translateEmailProviders(dnsData) {
 }
 
 /**
- * Adds a new provider to the fingerprints mapping
- * @param {string} key - Unique key for the provider
- * @param {Object} config - Provider configuration
+ * Generates a clean JSON report from provider analysis
+ * @param {Object} analysisResult - Result from translateEmailProviders()
+ * @returns {Object} - Structured JSON report
  */
-function addProvider(key, config) {
-  if (!config.name || !config.mxPatterns || !config.spfPatterns) {
-    throw new Error(
-      'Provider config must have name, mxPatterns, and spfPatterns'
-    );
+function generateJSONReport(analysisResult) {
+  if (!analysisResult.success) {
+    return {
+      success: false,
+      error: analysisResult.error,
+    };
   }
-  PROVIDER_FINGERPRINTS[key] = config;
-  console.log(`Added provider: ${config.name}`);
+
+  return {
+    domain: analysisResult.emailHost.provider,
+    infrastructure: {
+      emailHost: {
+        name: analysisResult.emailHost.provider,
+        servers: analysisResult.emailHost.mxServers,
+      },
+      dnsProvider: {
+        name: analysisResult.dnsProvider.provider,
+        nameservers: analysisResult.dnsProvider.nameservers,
+      },
+    },
+    services: {
+      security: analysisResult.security.services.map((s) => ({
+        name: s.name,
+        type: s.type,
+      })),
+      marketing: analysisResult.marketing.services.map((s) => ({
+        name: s.name,
+        type: s.type,
+      })),
+      authorizedSenders: analysisResult.authorizedSenders.providers,
+    },
+  };
 }
 
 /**
- * List all registered providers
- * @returns {Array} - Array of provider names
+ * Creates a condensed inline report for logging
+ * @param {Object} report - JSON report from generateJSONReport()
+ * @returns {string} - Formatted string for console output
  */
-function listProviders() {
-  return Object.entries(PROVIDER_FINGERPRINTS).map(([key, config]) => ({
-    key,
-    name: config.name,
-  }));
+function formatReportForConsole(report) {
+  if (!report.success === false) {
+    return `❌ Analysis Failed: ${report.error}`;
+  }
+
+  let output = '\n📊 EMAIL INFRASTRUCTURE REPORT\n' + '═'.repeat(70) + '\n';
+
+  // Infrastructure section
+  output += `📧 Email Host: ${report.infrastructure.emailHost.name}\n`;
+  output += `   Servers: ${report.infrastructure.emailHost.servers.join(', ')}\n\n`;
+
+  output += `🌐 DNS Provider: ${report.infrastructure.dnsProvider.name}\n`;
+  output += `   Nameservers: ${report.infrastructure.dnsProvider.nameservers.join(', ')}\n\n`;
+
+  // Services section
+  if (report.services.security.length > 0) {
+    output += '🔒 SECURITY SERVICES\n';
+    report.services.security.forEach((service) => {
+      output += `   • ${service.name} (${service.type})\n`;
+    });
+    output += '\n';
+  }
+
+  if (report.services.marketing.length > 0) {
+    output += '📬 MARKETING SERVICES\n';
+    report.services.marketing.forEach((service) => {
+      output += `   • ${service.name} (${service.type})\n`;
+    });
+    output += '\n';
+  }
+
+  if (report.services.authorizedSenders.length > 0) {
+    output += `📨 Authorized Senders: ${report.services.authorizedSenders.join(', ')}\n`;
+  }
+
+  output += '\n' + '═'.repeat(70) + '\n';
+  return output;
 }
 
 module.exports = {
   translateEmailProviders,
+  generateJSONReport,
+  formatReportForConsole,
   identifyMXProvider,
   identifyDNSProvider,
   identifySecurityServices,
   identifyMarketingServices,
   identifySPFProviders,
   extractSPFIncludes,
-  addProvider,
-  listProviders,
   PROVIDER_FINGERPRINTS,
   DNS_PROVIDER_FINGERPRINTS,
   SECURITY_PROVIDER_FINGERPRINTS,

@@ -18,11 +18,13 @@ const EXAMPLE_DOMAINS = [
 interface DomainFormProps {
   onTyping?: (isTyping: boolean) => void
   isThinking?: boolean
+  onError?: (error: string) => void
 }
 
 export default function DomainForm({ 
   onTyping,
   isThinking = false,
+  onError,
 }: DomainFormProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const hasUserTypedRef = useRef(false)
@@ -30,7 +32,6 @@ export default function DomainForm({
   const [value, setValue] = useState('')
   const [displayValue, setDisplayValue] = useState('www.fakedomain.com.au')
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
   const [cursorVisible, setCursorVisible] = useState(true)
   const [currentDomainIndex, setCurrentDomainIndex] = useState(0)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -46,6 +47,15 @@ export default function DomainForm({
 
   // Placeholder typewriter animation that cycles through example domains
   useEffect(() => {
+    // Reset animation if user clears the input
+    if (value.length === 0 && hasUserTypedRef.current) {
+      hasUserTypedRef.current = false
+      setDisplayValue('')
+      setIsDeleting(false)
+      setCurrentDomainIndex(0)
+      return
+    }
+
     // Stop animation permanently once user has typed at least once
     if (hasUserTypedRef.current) return
     
@@ -95,12 +105,11 @@ export default function DomainForm({
 
   const handleScrape = async () => {
     if (!value.trim()) {
-      setError('Please enter a domain')
+      onError?.('Please enter a domain')
       return
     }
 
     setIsLoading(true)
-    setError('')
 
     try {
       // Call the DNS lookup API
@@ -122,7 +131,8 @@ export default function DomainForm({
 
       const data = await response.json()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to perform DNS lookup')
+      const errorMsg = err instanceof Error ? err.message : 'Failed to perform DNS lookup'
+      onError?.(errorMsg)
     } finally {
       setIsLoading(false)
     }
@@ -173,9 +183,9 @@ export default function DomainForm({
           <motion.h1
             className="font-bold mb-1"
             style={{
-              fontSize: 'clamp(20px, 5vw, 36px)',
+              fontSize: 'clamp(16px, 4vw, 28px)',
               color: '#00ff00',
-              textShadow: '0 0 3px #00ff00',
+              textShadow: '0 0 2px rgba(0, 255, 0, 0.5)',
               margin: 0,
               letterSpacing: '0.05em',
             }}
@@ -188,10 +198,10 @@ export default function DomainForm({
           <motion.p
             className="text-[var(--muted-foreground)]"
             style={{
-              fontSize: 'clamp(13px, 2.5vw, 18px)',
+              fontSize: 'clamp(11px, 2vw, 14px)',
               color: '#00ff00',
-              textShadow: '0 0 3px #00ff00',
-              margin: 0,
+              textShadow: '0 0 1px rgba(0, 255, 0, 0.4)',
+              margin: '-4px 0 0 0',
               letterSpacing: '0.05em',
             }}
             initial={{ opacity: 0 }}
@@ -226,7 +236,7 @@ export default function DomainForm({
                 paddingRight: 'clamp(10px, 2%, 16px)',
                 paddingTop: 'clamp(8px, 1.5%, 12px)',
                 paddingBottom: 'clamp(8px, 1.5%, 12px)',
-                fontSize: 'clamp(12px, 2.2vw, 18px)',
+                fontSize: 'clamp(10px, 1.8vw, 14px)',
                 opacity: isThinking ? 0.5 : 1,
                 cursor: isThinking ? 'not-allowed' : 'auto',
               }}
@@ -241,7 +251,7 @@ export default function DomainForm({
                 style={{
                   left: 'clamp(10px, 2%, 16px)',
                   whiteSpace: 'pre',
-                  fontSize: 'inherit',
+                  fontSize: 'clamp(10px, 1.8vw, 14px)',
                   color: '#00aa00',
                 }}
               >
@@ -271,10 +281,10 @@ export default function DomainForm({
               paddingRight: 'clamp(12px, 2.5%, 20px)',
               paddingTop: 'clamp(8px, 1.5%, 12px)',
               paddingBottom: 'clamp(8px, 1.5%, 12px)',
-              fontSize: 'clamp(12px, 2.2vw, 18px)',
+              fontSize: 'clamp(10px, 1.8vw, 14px)',
               fontWeight: 'bold',
               borderWidth: '2px',
-              textShadow: '0 0 3px #00ff00',
+              textShadow: '0 0 1px rgba(0, 255, 0, 0.5)',
               letterSpacing: '0.05em',
               opacity: isThinking ? 0.5 : 1,
             }}
@@ -285,22 +295,6 @@ export default function DomainForm({
           </motion.button>
         </motion.div>
 
-        {error && (
-          <motion.div
-            className="rounded flex-shrink-0"
-            style={{
-              backgroundColor: 'var(--destructive)',
-              color: 'var(--destructive-foreground)',
-              padding: 'clamp(10px, 2%, 16px)',
-              marginTop: 'clamp(8px, 1.5%, 12px)',
-            }}
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <p className="font-semibold" style={{ fontSize: 'clamp(12px, 2.2vw, 18px)' }}>Error: {error}</p>
-          </motion.div>
-        )}
       </div>
       </div>
     </div>
