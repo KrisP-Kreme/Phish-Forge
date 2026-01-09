@@ -19,12 +19,14 @@ interface DomainFormProps {
   onTyping?: (isTyping: boolean) => void
   isThinking?: boolean
   onError?: (error: string) => void
+  onSuccess?: () => void
 }
 
 export default function DomainForm({ 
   onTyping,
   isThinking = false,
   onError,
+  onSuccess,
 }: DomainFormProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const hasUserTypedRef = useRef(false)
@@ -35,6 +37,7 @@ export default function DomainForm({
   const [cursorVisible, setCursorVisible] = useState(true)
   const [currentDomainIndex, setCurrentDomainIndex] = useState(0)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isSuccess, setIsSuccess] = useState(false)
   const typewriterTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Animated cursor effect
@@ -130,6 +133,10 @@ export default function DomainForm({
       }
 
       const data = await response.json()
+      
+      // Trigger success animation and callback
+      onSuccess?.()
+      setIsSuccess(true)
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to perform DNS lookup'
       onError?.(errorMsg)
@@ -150,8 +157,11 @@ export default function DomainForm({
   }
 
   return (
-    <div
+    <motion.div
       className="rounded-lg border-2 flex flex-col"
+      initial={{ opacity: 1, x: 0 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0 }}
       style={{
         backgroundColor: '#f1e6c7',
         borderColor: 'var(--border)',
@@ -297,6 +307,6 @@ export default function DomainForm({
 
       </div>
       </div>
-    </div>
+    </motion.div>
   )
 }

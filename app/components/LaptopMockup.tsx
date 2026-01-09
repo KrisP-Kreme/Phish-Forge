@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, ReactNode } from 'react'
 import Image from 'next/image'
+import { motion } from 'framer-motion'
 import DomainForm from './DomainForm'
 
 type LaptopState = 'idle' | 'lhs' | 'rhs' | 'thinking'
@@ -14,8 +15,11 @@ interface LaptopMockupProps {
 
 export default function LaptopMockup({ children, onTyping, onError }: LaptopMockupProps) {
   const [, forceUpdate] = useState({})
+  const [isFormSuccess, setIsFormSuccess] = useState(false)
+  const [showRodingAnimation, setShowRodingAnimation] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const screenRef = useRef<HTMLDivElement>(null)
+  const rodingRef = useRef<HTMLDivElement>(null)
   const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const thinkingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const thinkingShownRef = useRef(false)
@@ -128,14 +132,20 @@ export default function LaptopMockup({ children, onTyping, onError }: LaptopMock
       })
     }
     
-    // Wait for all images to load before marking as ready
-    Promise.all([
+    // Start preloading immediately for all states
+    const imagePromises = [
       preloadImage('/idle.png'),
       preloadImage('/lhs.png'),
       preloadImage('/rhs.png'),
       preloadImage('/think.png')
-    ]).then(() => {
+    ]
+    
+    // Wait for all images to load before marking as ready
+    Promise.all(imagePromises).then(() => {
       // Mark images as loaded so first keypress can change images smoothly
+      thinkingShownRef.current = true
+    }).catch(() => {
+      // Even if loading fails, mark as ready to prevent infinite waiting
       thinkingShownRef.current = true
     })
   }, [])
@@ -160,15 +170,14 @@ export default function LaptopMockup({ children, onTyping, onError }: LaptopMock
   }, [])
 
   useEffect(() => {
-    return () => {
-      if (idleTimeoutRef.current) {
-        clearTimeout(idleTimeoutRef.current)
-      }
-      if (thinkingTimeoutRef.current) {
-        clearTimeout(thinkingTimeoutRef.current)
-      }
+    // If success animation completes, trigger roding image after a brief delay
+    if (isFormSuccess) {
+      const timer = setTimeout(() => {
+        setShowRodingAnimation(true)
+      }, 850) // After the slide-off animation completes
+      return () => clearTimeout(timer)
     }
-  }, [])
+  }, [isFormSuccess])
 
   // Use keydown event - fires BEFORE character is added to input
   useEffect(() => {
@@ -222,6 +231,17 @@ export default function LaptopMockup({ children, onTyping, onError }: LaptopMock
             opacity: 1;
           }
         }
+
+        @keyframes slideUpFromBottom {
+          from {
+            transform: translateY(200px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
         
         .dirty-bezel::before {
           content: '';
@@ -245,6 +265,12 @@ export default function LaptopMockup({ children, onTyping, onError }: LaptopMock
       <div className="w-full flex flex-col items-center justify-center px-4 sm:px-6 md:px-8" ref={containerRef}>
         {/* Laptop mockup container - responsive sizing */}
         <div className="relative w-full max-w-4xl">
+        <motion.div
+          initial={{ opacity: 1, y: 0 }}
+          animate={isFormSuccess ? { opacity: 0, y: 1000 } : { opacity: 1, y: 0 }}
+          transition={isFormSuccess ? { duration: 0.8, ease: 'easeIn' } : { duration: 0 }}
+          style={{ width: '100%', display: 'block' }}
+        >
         <Image
           src={imageSrc}
           alt="Laptop mockup"
@@ -280,9 +306,47 @@ export default function LaptopMockup({ children, onTyping, onError }: LaptopMock
               pointerEvents: 'auto', // Re-enable pointer events for content
             }}
           >
-            {children || <DomainForm onTyping={onTyping} isThinking={laptopStateRef.current === 'thinking'} onError={onError} />}
+            {children || <DomainForm onTyping={onTyping} isThinking={laptopStateRef.current === 'thinking'} onError={onError} onSuccess={() => setIsFormSuccess(true)} />}
           </div>
         </div>
+        </motion.div>
+
+        {/* Roding image animation - appears after form success */}
+        {showRodingAnimation && (
+          <motion.div
+            ref={rodingRef}
+            initial={{ opacity: 0, y: 200 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: 'easeOut' }}
+            className="absolute inset-0"
+            style={{
+              width: '1920px',
+              height: '1080px',
+              transformOrigin: 'top left',
+              pointerEvents: 'auto',
+            }}
+          >
+            <div
+              className="absolute flex items-center justify-center"
+              style={{
+                top: 'auto',
+                left: '1%',
+                right: '53%',
+                bottom: '11.5%',
+                pointerEvents: 'auto',
+              }}
+            >
+              <Image
+                src="/roding.png"
+                alt="Roding animation"
+                width={1200}
+                height={800}
+                unoptimized
+                className="w-full h-auto block"
+              />
+            </div>
+          </motion.div>
+        )}
       </div>
     </div>
     </>
