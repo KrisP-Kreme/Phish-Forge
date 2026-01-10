@@ -22,40 +22,63 @@ export const sections = [
               <div className="grid md:grid-cols-3 gap-8 items-start">
                 {/* Step 1 - Sticky Note */}
                 <div className="flex justify-center">
-                  <div className="sticky-note relative">
-                      <div className="note-tape tape-center" aria-hidden />
-                    <div className="flex items-start gap-4">
-                      <div>
-                        <h3 className="text-4xl font-bold mb-10 indent-20">Input a Domain</h3>
-                        <ul>
-                          <li className="text-[var(--muted-foreground)] text-2xl">- Find a domain to test and input its address.</li>
-                          <br></br>
-                          <li className="text-[var(--muted-foreground)] text-2xl">- This will be the target for the phishing simulation.</li>
-                          <br></br>
-                          <li className="text-[var(--muted-foreground)] text-2xl">- This will be the target for the phishing simulation.</li>
-                        </ul>
+                  <div className="relative inline-block w-full max-w-[620px]">
+                    {/* tape */}
+                    <div className="note-tape tape-left" aria-hidden />
+                    <div className="note-tape tape-right" aria-hidden />
+
+                    {/* paper */}
+                    <div className="sticky-note relative torn-1">
+
+                      <div className="flex items-start gap-4">
+                        <div>
+                          <h3 className="text-4xl font-bold mb-10 indent-40">
+                            Input a Domain
+                          </h3>
+                          <ul className="space-y-9 pl-4">
+                            <li className="text-2xl text-[var(--muted-foreground)]">
+                              Find a domain to test and input its web address.
+                            </li>
+                            <li className="text-[var(--muted-foreground)] text-2xl">
+                              This will be the target for the phishing simulation.
+                            </li>
+                            <li className="text-[var(--muted-foreground)] text-2xl">
+                              Click "generate" and watch as PhishForge creates a realistic phishing email in minutes.
+                            </li>
+                          </ul>
+                        </div>
                       </div>
                     </div>
                   </div>
-
-                  {/* arrows removed per request */}
                 </div>
 
                 {/* Step 2 - Sticky Note */}
                 <div className="flex justify-center">
-                  <div className="sticky-note relative">
-                      <div className="note-tape tape-left" aria-hidden />
-                      <div className="note-tape tape-right" aria-hidden />
-                    <div className="flex items-start gap-4">
-                      <div>
-                        <h3 className="text-4xl font-bold mb-12 indent-20">Analyze Results</h3>
-                        <ul>
-                          <li className="text-[var(--muted-foreground)] text-2xl">- Get detailed insights into how users interact with emails.</li>
-                          <br></br>
-                          <li className="text-[var(--muted-foreground)] text-2xl">- Identify vulnerable areas and adapt.</li>
-                          <br></br>
-                          <li className="text-[var(--muted-foreground)] text-2xl">- Identify vulnerable areas and adapt.</li>
-                        </ul>
+                  <div className="relative inline-block w-full max-w-[620px]">
+                    {/* tape */}
+                    <div className="note-tape tape-center" aria-hidden />
+                    <div className="note-tape tape-right" aria-hidden />
+
+                    {/* paper */}
+                    <div className="sticky-note relative torn-2">
+
+                      <div className="flex items-start gap-4">
+                        <div>
+                          <h3 className="text-4xl font-bold mb-10 indent-40">
+                            Analyse Results
+                          </h3>
+                          <ul className="space-y-9 pl-4">
+                            <li className="text-2xl text-[var(--muted-foreground)]">
+                              PhishForge will create a phishing email that mimics the target domain.
+                            </li>
+                            <li className="text-[var(--muted-foreground)] text-2xl">
+                              You can see how the email would look to users.
+                            </li>
+                            <li className="text-[var(--muted-foreground)] text-2xl">
+                              You can also see the code behind the email to understand how it works.
+                            </li>
+                          </ul>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -63,18 +86,30 @@ export const sections = [
 
                 {/* Step 3 - Sticky Note */}
                 <div className="flex justify-center">
-                  <div className="sticky-note relative">
-                      <div className="note-tape tape-center" aria-hidden />
-                    <div className="flex items-start gap-4">
-                      <div>
-                        <h3 className="text-4xl font-bold mb-10 indent-8">Train & Improve</h3>
-                        <ul>
-                          <li className="text-[var(--muted-foreground)] text-2xl">- Use insights to create targeted training. </li>
-                          <br></br>
-                          <li className="text-[var(--muted-foreground)] text-2xl">- Improve your organization's security awareness.</li>
-                          <br></br>
-                          <li className="text-[var(--muted-foreground)] text-2xl">- Improve your organization's security awareness.</li>
-                        </ul>
+                  <div className="relative inline-block w-full max-w-[620px]">
+                    {/* tape */}
+                    <div className="note-tape tape-center" aria-hidden />
+
+                    {/* paper */}
+                    <div className="sticky-note relative torn-3">
+
+                      <div className="flex items-start gap-4">
+                        <div>
+                          <h3 className="text-4xl font-bold mb-10 indent-40">
+                            Train & Educate
+                          </h3>
+                          <ul className="space-y-9 pl-4">
+                            <li className="text-2xl text-[var(--muted-foreground)]">
+                              Using our simple tool, you can find out just how easy it is to create convincing phishing emails.
+                            </li>
+                            <li className="text-[var(--muted-foreground)] text-2xl">
+                              Artificial Intelligence has made it easier than ever to craft these emails.
+                            </li>
+                            <li className="text-[var(--muted-foreground)] text-2xl">
+                              Educate yourself and others on how to recognize and avoid falling victim to phishing attacks.
+                            </li>
+                          </ul>
+                        </div>
                       </div>
                     </div>
                   </div>
