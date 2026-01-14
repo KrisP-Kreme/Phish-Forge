@@ -242,6 +242,42 @@ export default function LaptopMockup({ children, onTyping, onError }: LaptopMock
             opacity: 1;
           }
         }
+
+        @keyframes dot1 {
+          0%, 20% { opacity: 0; }
+          40%, 80% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+
+        @keyframes dot2 {
+          0%, 40% { opacity: 0; }
+          60%, 80% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+
+        @keyframes dot3 {
+          0%, 60% { opacity: 0; }
+          80% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+
+        .dot {
+          display: inline-block;
+          animation-duration: 1.5s;
+          animation-iteration-count: infinite;
+        }
+
+        .dot:nth-child(1) {
+          animation-name: dot1;
+        }
+
+        .dot:nth-child(2) {
+          animation-name: dot2;
+        }
+
+        .dot:nth-child(3) {
+          animation-name: dot3;
+        }
         
         .dirty-bezel::before {
           content: '';
@@ -345,6 +381,31 @@ export default function LaptopMockup({ children, onTyping, onError }: LaptopMock
                 className="w-full h-auto block"
               />
             </div>
+
+            {/* Text overlay - appears with the fishing animation */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="absolute"
+              style={{
+                top: '15%',
+                left: '3%',
+                pointerEvents: 'none',
+                maxWidth: '400px',
+              }}
+            >
+              <p
+                className="text-2xl md:text-3xl font-bold tracking-tight"
+                style={{
+                  fontFamily: 'inherit',
+                  color: 'currentColor',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                waiting for a nibble<span className="dot">.</span><span className="dot">.</span><span className="dot">.</span>
+              </p>
+            </motion.div>
           </motion.div>
         )}
       </div>
