@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, ReactNode } from 'react'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import DomainForm from './DomainForm'
+import PartnerCardsContainer from './PartnerCardsContainer'
+import type { PartnerCardViewProps } from '@/app/types'
 
 type LaptopState = 'idle' | 'lhs' | 'rhs' | 'thinking'
 
@@ -17,12 +19,17 @@ export default function LaptopMockup({ children, onTyping, onError }: LaptopMock
   const [, forceUpdate] = useState({})
   const [isFormSuccess, setIsFormSuccess] = useState(false)
   const [showRodingAnimation, setShowRodingAnimation] = useState(false)
+  const [rodingMoveOut, setRodingMoveOut] = useState(false)
+  const [partners, setPartners] = useState<PartnerCardViewProps[]>([])
+  const [dnsData, setDnsData] = useState<any>(null)
+  const [currentDomain, setCurrentDomain] = useState<string>('')
   const containerRef = useRef<HTMLDivElement>(null)
   const screenRef = useRef<HTMLDivElement>(null)
   const rodingRef = useRef<HTMLDivElement>(null)
   const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const thinkingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const thinkingShownRef = useRef(false)
+  const showCardsTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   
   // Track state in refs only - no React state batching interference
   const laptopStateRef = useRef<LaptopState>('idle')
@@ -170,14 +177,32 @@ export default function LaptopMockup({ children, onTyping, onError }: LaptopMock
   }, [])
 
   useEffect(() => {
-    // If success animation completes, trigger roding image after a brief delay
+    // If success animation completes, trigger roding image immediately
     if (isFormSuccess) {
       const timer = setTimeout(() => {
         setShowRodingAnimation(true)
-      }, 850) // After the slide-off animation completes
+      }, 800) // After the slide-off animation completes
       return () => clearTimeout(timer)
     }
   }, [isFormSuccess])
+
+  useEffect(() => {
+    // When partners are discovered, trigger the second animation
+    if (partners.length > 0 || dnsData) {
+      // Delay to allow roding animation to display first
+      if (showCardsTimeoutRef.current) {
+        clearTimeout(showCardsTimeoutRef.current)
+      }
+      showCardsTimeoutRef.current = setTimeout(() => {
+        setRodingMoveOut(true)
+      }, 2500) // Show roding animation for 2.5 seconds before moving out
+      return () => {
+        if (showCardsTimeoutRef.current) {
+          clearTimeout(showCardsTimeoutRef.current)
+        }
+      }
+    }
+  }, [partners, dnsData])
 
   // Use keydown event - fires BEFORE character is added to input
   useEffect(() => {
@@ -298,7 +323,7 @@ export default function LaptopMockup({ children, onTyping, onError }: LaptopMock
           box-shadow: inset 0 0 0 32px;
         }
       `}</style>
-      <div className="w-full flex flex-col items-center justify-center px-4 sm:px-6 md:px-8" ref={containerRef}>
+      <div className="w-full flex flex-col items-center justify-center px-4 sm:px-6 md:px-8 py-2" ref={containerRef}>
         {/* Laptop mockup container - responsive sizing */}
         <div className="relative w-full max-w-4xl">
         <motion.div
@@ -342,7 +367,21 @@ export default function LaptopMockup({ children, onTyping, onError }: LaptopMock
               pointerEvents: 'auto', // Re-enable pointer events for content
             }}
           >
-            {children || <DomainForm onTyping={onTyping} isThinking={laptopStateRef.current === 'thinking'} onError={onError} onSuccess={() => setIsFormSuccess(true)} />}
+            {children || (
+              <DomainForm 
+                onTyping={onTyping} 
+                isThinking={laptopStateRef.current === 'thinking'} 
+                onError={onError} 
+                onSuccess={() => setIsFormSuccess(true)}
+                onPartnersDiscovered={(discoveredPartners, dns) => {
+                  setPartners(discoveredPartners)
+                  setDnsData(dns)
+                  // Get domain from partners or DNS data
+                  const domain = discoveredPartners[0]?.domain || dns?.result?.domainCheck?.domain || dns?.domainCheck?.domain || ''
+                  setCurrentDomain(domain)
+                }}
+              />
+            )}
           </div>
         </div>
         </motion.div>
@@ -352,8 +391,8 @@ export default function LaptopMockup({ children, onTyping, onError }: LaptopMock
           <motion.div
             ref={rodingRef}
             initial={{ opacity: 0, y: 200 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: 'easeOut' }}
+            animate={rodingMoveOut ? { opacity: 0, y: 900 } : { opacity: 1, y: 0 }}
+            transition={rodingMoveOut ? { duration: 1.2, ease: 'easeIn' } : { duration: 0.8, ease: 'easeOut' }}
             className="absolute inset-0"
             style={{
               width: '1920px',
@@ -406,6 +445,23 @@ export default function LaptopMockup({ children, onTyping, onError }: LaptopMock
                 waiting for a nibble<span className="dot">.</span><span className="dot">.</span><span className="dot">.</span>
               </p>
             </motion.div>
+          </motion.div>
+        )}
+
+        {/* Partner Cards - appears after nibble animation completes and moves out */}
+        {(partners.length > 0 || dnsData) && rodingMoveOut && (
+          <motion.div
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="w-full"
+            style={{ height: 'calc(100vh - 250px)' }}
+          >
+            <PartnerCardsContainer
+              domain={currentDomain}
+              partners={partners}
+              dnsData={dnsData}
+            />
           </motion.div>
         )}
       </div>

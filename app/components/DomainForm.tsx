@@ -20,6 +20,7 @@ interface DomainFormProps {
   isThinking?: boolean
   onError?: (error: string) => void
   onSuccess?: () => void
+  onPartnersDiscovered?: (partners: any[], dnsData?: any) => void
 }
 
 export default function DomainForm({ 
@@ -27,6 +28,7 @@ export default function DomainForm({
   isThinking = false,
   onError,
   onSuccess,
+  onPartnersDiscovered,
 }: DomainFormProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const hasUserTypedRef = useRef(false)
@@ -112,11 +114,15 @@ export default function DomainForm({
       return
     }
 
+    // Immediately trigger success animation (form slides off)
+    onSuccess?.()
+    setIsSuccess(true)
+
     setIsLoading(true)
 
     try {
       // Call the DNS lookup API
-      const response = await fetch('/api/dns', {
+      const dnsResponse = await fetch('/api/dns', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -127,18 +133,37 @@ export default function DomainForm({
         }),
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
+      if (!dnsResponse.ok) {
+        const errorData = await dnsResponse.json()
         throw new Error(errorData.error || 'Failed to perform DNS lookup')
       }
 
-      const data = await response.json()
-      
-      // Trigger success animation and callback
-      onSuccess?.()
-      setIsSuccess(true)
+      const dnsData = await dnsResponse.json()
+
+      // Now call the partner discovery API
+      const partnersResponse = await fetch('/api/partners', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          domain: value.trim(),
+          dnsData: dnsData.result || {},
+        }),
+      })
+
+      if (!partnersResponse.ok) {
+        const errorData = await partnersResponse.json()
+        throw new Error(errorData.error || 'Failed to discover partners')
+      }
+
+      const partnersData = await partnersResponse.json()
+
+      if (partnersData.success && partnersData.data?.aiPartners) {
+        onPartnersDiscovered?.(partnersData.data.aiPartners, dnsData)
+      }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to perform DNS lookup'
+      const errorMsg = err instanceof Error ? err.message : 'Failed to analyze domain'
       onError?.(errorMsg)
     } finally {
       setIsLoading(false)
