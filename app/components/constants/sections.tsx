@@ -8,18 +8,13 @@ export const sections = [
     
   },
   { 
-    id: 'features', 
-    title: 'Why Us?', 
-    content: 'We provide resources, mentorship, and a supportive network to help you grow your projects.' 
-  },
-  { 
     id: 'how-it-works', 
     title: 'How It Works', 
         content: (
           <section id="about" className="py-12 md:py-16" style={{ backgroundColor: 'var(--card)' }}>
              <div className="mx-auto px-6 w-full relative">
 
-              <div className="grid md:grid-cols-3 gap-8 items-start">
+              <div className="grid xl:grid-cols-3 gap-8 items-start">
                 {/* Step 1 - Sticky Note */}
                 <div className="flex justify-center">
                   <div className="relative inline-block w-full max-w-[620px]">

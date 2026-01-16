@@ -7,13 +7,14 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   return (
-    <div className="h-screen overflow-hidden bg-background relative">
-      <div className="absolute inset-0 z-10">
-        <Squares 
+  <div className="h-screen overflow-y-visible overflow-x-visible relative bg-background">
+      <div className="absolute inset-0 z-10 pointer-events-none">
+        <Squares
+          className="pointer-events-none"
           direction="diagonal"
           speed={0.5}
           squareSize={40}
-          borderColor={"hsl(var(--border))"} 
+          borderColor={"hsl(var(--border))"}
           hoverFillColor={"hsl(var(--muted))"}
         />
       </div>

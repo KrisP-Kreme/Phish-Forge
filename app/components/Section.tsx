@@ -41,7 +41,7 @@ export default function Section({ id, title, subtitle, content, isActive, showBu
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={isActive ? { opacity: 1, scale: 1 } : {}}
                 transition={{ duration: 0.5 }}
-              />
+              /> 
             )}
           </div>
           {content && (
