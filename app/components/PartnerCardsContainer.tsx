@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { PartnerCardViewProps } from '@/app/types'
 import PartnerCard from './PartnerCard'
-import EmailCodeEditor from './EmailCodeEditor'
+import EmailLiveEditor from './EmailLiveEditor'
 
 interface PartnerCardsContainerProps {
   domain: string
@@ -275,9 +275,9 @@ export default function PartnerCardsContainer({
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 50, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="fixed bottom-0 left-0 right-0 max-h-[80vh] overflow-y-auto z-50 bg-white rounded-t-2xl shadow-2xl"
+              className="fixed bottom-0 left-0 right-0 max-h-[80vh] overflow-y-auto z-50 bg-gray-900 rounded-t-2xl shadow-2xl"
             >
-              <EmailCodeEditor
+              <EmailLiveEditor
                 domain={domain}
                 partner={selectedPartner.aiData}
                 isLoading={isGeneratingEmail}

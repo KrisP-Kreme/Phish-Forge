@@ -40,6 +40,29 @@ export default function EmailCodeEditor({
     onLoadingChange?.(true)
 
     try {
+      // Extract partner domain for scraping THEIR design (the sender's branding)
+      let partnerDomain = partner.url
+
+      if (partnerDomain) {
+        try {
+          partnerDomain = new URL(partnerDomain).hostname || partnerDomain
+        } catch {
+          // If URL parsing fails, try adding https:// prefix
+          try {
+            partnerDomain = new URL(`https://${partnerDomain}`).hostname || partnerDomain
+          } catch {
+            // Fallback to the URL as-is
+          }
+        }
+      }
+      // Fallback: if no URL, generate domain from partner name
+      if (!partnerDomain) {
+        partnerDomain = partner.name.toLowerCase().replace(/\s+/g, '')
+      }
+
+      console.log('[EmailCodeEditor] Extracted partnerDomain:', partnerDomain)
+      console.log('[EmailCodeEditor] Target domain:', domain)
+      
       const response = await fetch('/api/email/generate', {
         method: 'POST',
         headers: {
@@ -47,11 +70,12 @@ export default function EmailCodeEditor({
           'x-session-id': typeof window !== 'undefined' ? window.location.hostname : 'unknown',
         },
         body: JSON.stringify({
-          domain,
+          domain: domain, // Target company domain (what we're scraping for design)
           partner: {
             name: partner.name,
             type: partner.type,
             relationship: partner.relationship,
+            url: partner.url,
           },
           previousEmail: previousEmail || undefined,
         }),
@@ -64,8 +88,8 @@ export default function EmailCodeEditor({
       }
 
       setEmail(data.data)
-      setEditedContent(data.data?.body_html || '')
-      setPreviousEmail(data.data?.body_html || null)
+      setEditedContent(data.data?.html_body || '')
+      setPreviousEmail(data.data?.html_body || null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error occurred')
     } finally {
@@ -75,7 +99,7 @@ export default function EmailCodeEditor({
   }
 
   const handleCopy = () => {
-    const contentToCopy = editMode ? editedContent : email?.body_html || ''
+    const contentToCopy = editMode ? editedContent : (email?.html_body || email?.body_html || '')
     navigator.clipboard.writeText(contentToCopy)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
@@ -87,7 +111,7 @@ export default function EmailCodeEditor({
 
   const handleToggleEditMode = () => {
     if (!editMode) {
-      setEditedContent(email?.body_html || '')
+      setEditedContent(email?.html_body || email?.body_html || '')
     }
     setEditMode(!editMode)
   }
@@ -195,12 +219,23 @@ export default function EmailCodeEditor({
                   <textarea
                     value={editedContent}
                     onChange={(e) => setEditedContent(e.target.value)}
-                    className="w-full h-64 p-3 bg-white border border-gray-200 rounded font-mono text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full h-64 p-3 bg-gray-950 border border-gray-700 rounded font-mono text-xs text-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     spellCheck="false"
+                    style={{
+                      backgroundColor: 'rgb(3, 7, 18)',
+                      color: 'rgb(248, 250, 252)',
+                      caretColor: 'rgb(96, 165, 250)',
+                      borderColor: 'rgb(55, 65, 81)',
+                    }}
                   />
                 ) : (
-                  <div className="bg-white p-3 rounded border border-gray-200 overflow-x-auto max-h-64 overflow-y-auto">
-                    <pre className="text-xs text-gray-900 whitespace-pre-wrap break-words">
+                  <div className="bg-gray-950 p-3 rounded border border-gray-700 overflow-x-auto max-h-64 overflow-y-auto"
+                    style={{
+                      backgroundColor: 'rgb(3, 7, 18)',
+                      borderColor: 'rgb(55, 65, 81)',
+                    }}
+                  >
+                    <pre className="text-xs text-gray-50 whitespace-pre-wrap break-words" style={{ color: 'rgb(248, 250, 252)' }}>
                       {email.body_html}
                     </pre>
                   </div>

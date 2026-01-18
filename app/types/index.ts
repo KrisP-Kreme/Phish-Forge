@@ -1,6 +1,50 @@
 import type { ReactNode } from "react"
 import type { PartnerDiscoveryResponse, Partner } from "@/prompts/partner-discovery/partner-discovery.v1.schema"
-import type { EmailGenerationResponse } from "@/prompts/email-generation/email-generation.v1.schema"
+
+// Website Design Data - extracted from target company
+export interface TargetWebsiteDesign {
+  domain: string
+  colors: {
+    primary?: string
+    secondary?: string
+    accent?: string
+    neutral?: string
+  }
+  fonts: {
+    primary?: string
+    secondary?: string
+  }
+  logo?: string
+  favicon?: string
+  palette?: {
+    dominant: string
+    secondary: string
+    accent: string
+    neutral: string
+    text: string
+  }
+}
+
+// Email Generation Response - refactored with design data
+export interface EmailGenerationResponse {
+  subject: string
+  from: string
+  from_name?: string
+  to: string
+  partner_name: string
+  partner_domain: string
+  target_domain: string
+  target_design?: TargetWebsiteDesign
+  html_body: string
+  text_body: string
+  cta_text?: string
+  cta_url?: string
+  urgency?: 'low' | 'medium' | 'high' | 'critical'
+  scenario?: string
+  believability_factors?: string[]
+  generated_at: string
+  version: string
+}
 
 export interface Section {
   id: string
