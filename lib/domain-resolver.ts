@@ -93,14 +93,44 @@ function extractDomain(urlString: string): string {
  */
 async function validateDomainExists(domain: string): Promise<boolean> {
   try {
-    const url = domain.startsWith('http') ? domain : `https://${domain}`
-    const response = await fetch(url, {
-      method: 'HEAD',
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-    }).catch(() => null)
+    // Try with www. first (most common)
+    const baseUrl = domain.startsWith('http') ? domain : domain
+    const urlsToTry = [
+      `https://www.${baseUrl}`,
+      `https://${baseUrl}`,
+    ]
     
-    return response?.ok === true
-  } catch {
+    for (const url of urlsToTry) {
+      try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
+        
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: { 
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          },
+          signal: controller.signal,
+        })
+        
+        clearTimeout(timeoutId)
+        
+        // Accept any 2xx or 3xx status (redirects are fine)
+        if (response.status < 400) {
+          console.log('[Domain] ✓ Domain accessible:', url)
+          return true
+        }
+      } catch (e) {
+        // Try next URL
+        continue
+      }
+    }
+    
+    console.warn('[Domain] ⚠ Domain not accessible after retries:', domain)
+    return false
+  } catch (err) {
+    console.error('[Domain] Validation error:', err instanceof Error ? err.message : 'Unknown')
     return false
   }
 }

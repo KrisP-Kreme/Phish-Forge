@@ -10,6 +10,8 @@ import {
 import { scrapeWebsite } from '@/lib/website-scraper'
 import { extractColorPalette } from '@/lib/color-palette'
 import { searchDomain } from '@/lib/domain-resolver'
+import { buildScenarioSuggestion, updateScenarioMemory } from '@/lib/scenario-memory'
+import { compactifyStyleProfile, buildStyleGuidance, type CompactStyleProfile } from '@/lib/style-profile'
 import type { AIDataSection, TargetWebsiteDesign } from '@/app/types'
 import { z } from 'zod'
 
@@ -24,6 +26,9 @@ const RequestSchema = z.object({
   }),
   previousEmail: z.string().optional(),
 })
+
+// OPTIMIZATION: In-memory cache for scenario memory (in production, use Redis)
+const scenarioMemoryCache = new Map<string, any>()
 
 export async function POST(request: NextRequest) {
   try {
@@ -48,32 +53,44 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Extract partner domain from URL if available
-    const partnerDomain = partner.url
-      ? new URL(partner.url).hostname
-      : partner.name.toLowerCase().replace(/\s+/g, '')
+    // Extract and resolve partner domain via search
+    let partnerDomain: string
+    
+    if (partner.url) {
+      // Use provided URL - most reliable
+      const parsedUrl = new URL(partner.url)
+      partnerDomain = parsedUrl.hostname || partner.url
+      console.log('[/api/email/generate] Using provided partner URL:', partnerDomain)
+    } else {
+      // Search for partner domain by name
+      console.log('[/api/email/generate] Searching for partner domain:', partner.name)
+      const partnerSearch = await searchDomain(partner.name)
+      
+      if (partnerSearch.found && partnerSearch.domain) {
+        partnerDomain = partnerSearch.domain
+        console.log('[/api/email/generate] ✓ Partner domain resolved to:', partnerDomain)
+      } else {
+        // Fallback: use partner name as best guess
+        console.warn('[/api/email/generate] ⚠ Partner domain not found, using name as fallback:', partner.name)
+        partnerDomain = partner.name.toLowerCase().replace(/\s+/g, '')
+      }
+    }
 
-    // Resolve target domain if it looks incomplete
+    // Validate that partnerDomain is not accidentally the target domain
+    if (partnerDomain.includes(domain.split('.')[0])) {
+      console.error('[/api/email/generate] ⚠ WARNING: Partner domain appears to be the target domain! This may indicate incorrect domain resolution.')
+    }
+
+    // Resolve target domain via search
     let resolvedDomain = domain
     console.log('[/api/email/generate] Resolving target domain:', domain)
     
-    const hasValidFormat = domain.includes('.') || domain.startsWith('http')
-    if (!hasValidFormat) {
-      console.log('[/api/email/generate] Domain appears incomplete, searching...')
-      const searchResult = await searchDomain(domain)
-      if (searchResult.found && searchResult.domain) {
-        resolvedDomain = searchResult.domain
-        console.log('[/api/email/generate] ✓ Domain resolved to:', resolvedDomain)
-      } else {
-        console.warn('[/api/email/generate] Domain search inconclusive, using best guess:', searchResult.domain || domain)
-        resolvedDomain = searchResult.domain || domain
-      }
-    } else {
-      console.log('[/api/email/generate] Domain appears complete, skipping search:', domain)
-    }
+    const targetSearch = await searchDomain(domain)
+    resolvedDomain = targetSearch.domain || domain
+    console.log('[/api/email/generate] ✓ Target domain resolved to:', resolvedDomain)
 
-    // Scrape PARTNER company website for design information (who the email is FROM)
-    console.log('[/api/email/generate] Scraping partner website:', partnerDomain)
+    // OPTIMIZATION: Scrape partner website with hard limits
+    console.log('[/api/email/generate] Scraping partner website:', partnerDomain, '(FROM:', partner.name, ')')
     const scrapedData = await scrapeWebsite(partnerDomain)
     
     // Extract color palette from scraped data
@@ -83,7 +100,7 @@ export async function POST(request: NextRequest) {
       console.log('[/api/email/generate] Extracted color palette from partner:', palette)
     }
 
-    // Build partner website design data for prompt
+    // OPTIMIZATION: Build minimal design data context (~35 tokens instead of ~450)
     const targetDesignData: TargetWebsiteDesign = {
       domain: partnerDomain,
       colors: scrapedData.colors,
@@ -93,69 +110,169 @@ export async function POST(request: NextRequest) {
       palette: palette || undefined,
     }
 
-    // Build design data context for prompt
-    const designContext = `
-PARTNER/SENDER COMPANY DESIGN INFORMATION:
-- Primary Color: ${targetDesignData.colors?.primary || 'Not detected (will use #0066cc)'}
-- Secondary Color: ${targetDesignData.colors?.secondary || 'Not detected'}
-- Primary Font: ${targetDesignData.fonts?.primary || 'System default (Arial, sans-serif)'}
-- Secondary Font: ${targetDesignData.fonts?.secondary || 'Not detected'}
-- Logo: ${targetDesignData.logo || 'Not found'}
-- Favicon: ${targetDesignData.favicon || 'Not found'}
+    // OPTIMIZATION: Compact design digest for prompt (minimal tokens)
+    const designDigest = {
+      primary_color: palette?.dominant || scrapedData.colors?.primary || '#0066cc',
+      secondary_color: palette?.secondary || scrapedData.colors?.secondary || '#0052a3',
+      primary_font: scrapedData.fonts?.primary || 'Arial, sans-serif',
+      logo_url: scrapedData.logo || `https://img.logo.dev/${partnerDomain}`,
+    }
 
-COLOR PALETTE FOR EMAIL:
-- Dominant (Banner/Header): ${palette?.dominant || '#0066cc'}
-- Secondary (Accents): ${palette?.secondary || '#0052a3'}
-- Accent (CTA Button): ${palette?.accent || '#ff6b35'}
-- Neutral (Background): ${palette?.neutral || '#f5f5f5'}
-- Text: ${palette?.text || '#333333'}
+    // OPTIMIZATION: Replace full previousEmail with scenario suggestion
+    let scenarioSuggestion = ''
+    if (previousEmail) {
+      console.log('[/api/email/generate] Building scenario suggestion instead of embedding full email')
+      const memoryKey = `${sessionId}:${resolvedDomain}`
+      let scenarioMemory = scenarioMemoryCache.get(memoryKey)
+      scenarioSuggestion = buildScenarioSuggestion(scenarioMemory)
+      console.log('[/api/email/generate] Scenario suggestion:', scenarioSuggestion)
+    }
 
-FONTS DETECTED:
-${targetDesignData.fonts?.primary ? `- Primary Font Family: ${targetDesignData.fonts.primary}` : '- Primary Font: Not detected (use sans-serif fallback)'}
-${targetDesignData.fonts?.secondary ? `- Secondary Font Family: ${targetDesignData.fonts.secondary}` : ''}
-`
+    // OPTIMIZATION: Build comprehensive design-focused user message with professional email standards
+    // Extract target company name from domain for greeting
+    const targetCompanyName = resolvedDomain
+      .replace(/^www\./, '')
+      .split('.')[0]
+      .replace(/[-_]/g, ' ')
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
 
-    // Build user message with context
-    const userMessage = `Generate a highly believable phishing simulation email for authorized security awareness training.
+    const userMessage = `Generate a CRYSTAL CLEAR phishing simulation email - simple enough for ANY employee to understand in 30 seconds:
 
-TARGET COMPANY (recipient): ${resolvedDomain}
-SENDER/PARTNER COMPANY (who the email is FROM): ${partner.name}
-Partner Domain: ${partnerDomain}
-Partner Type: ${partner.type || 'Business Partner'}
-Relationship: ${partner.relationship || 'External vendor/service provider'}
+CLARITY FIRST:
+- Write like you're talking to a busy employee who doesn't have time for jargon
+- First sentence must say WHY they should care
+- Every paragraph should be understandable by someone with no technical knowledge
+- Avoid jargon: no "facilitate", "leverage", "synergize", "operationalize", etc.
+- Use simple words: "need", "want", "must", "check", "verify", "click here"
+- SHORT paragraphs - max 3-4 lines each
+- Active voice ("We need you to...") not passive ("Implementation of...")
+- If you have to read it twice, it's not clear enough
 
-${designContext}
+BUSINESS RELATIONSHIP CONTEXT (MAKE IT RELEVANT):
+- Sender Company: ${partner.name}
+- Target Company: ${targetCompanyName}
+- Relationship Type: ${partner.relationship || 'Business Partner'}
+- Partner Type: ${partner.type || 'Service Provider'}
 
-${previousEmail ? `Previously generated email (create a DIFFERENT variation with different scenario/urgency):\n${previousEmail}\n` : ''}
+Why this matters: Reference their actual business together. Make it obvious why ${partner.name} would contact ${targetCompanyName}.
 
-CRITICAL: The email MUST:
-1. Use the PARTNER company's design (colors, fonts, logo) - THIS IS WHO THE EMAIL IS FROM
-2. Apply the detected fonts in the email CSS: ${targetDesignData.fonts?.primary ? `primary font="${targetDesignData.fonts.primary}"` : 'no primary font detected'}${targetDesignData.fonts?.secondary ? `, secondary font="${targetDesignData.fonts.secondary}"` : ''}
-3. Appear to come FROM the partner company (${partner.name})
-4. Use partner company's domain and branding
-5. Reference the target company (${resolvedDomain}) as the recipient/victim
-6. Use partner logo: https://img.logo.dev/${partnerDomain}
-7. Apply partner company colors and fonts for authenticity
-8. Be highly believable and compelling
-9. Include realistic business justification for contacting the target
-10. Address the email TO the target company (${resolvedDomain})
-11. Return ONLY valid JSON (no code fences, no markdown)
+SENDER DETAILS:
+- Company: ${partner.name}
+- Domain: ${partnerDomain}
+- To: ${targetCompanyName}
 
-The email should look like a legitimate business communication FROM the partner TO the target company.`
+BRAND DESIGN ELEMENTS:
+- Logo: ${designDigest.logo_url}
+- Primary Color: ${designDigest.primary_color}
+- Secondary Color: ${designDigest.secondary_color}
+
+CRITICAL EMAIL STRUCTURE:
+
+GREETING (SIMPLE):
+- Format: "Hi ${targetCompanyName} team,"
+- That's it. Direct and clear.
+
+OPENING (SAY WHY THEY SHOULD READ THIS):
+- One short sentence explaining the reason
+- Example: "We noticed your account needs verification for our payment system to keep working."
+- NOT: "Operational adjacency requires verification protocol implementation"
+
+MAIN CONTENT (CRYSTAL CLEAR):
+- Use very short paragraphs
+- One idea per paragraph
+- Explain the "why" in plain English
+- Use concrete examples
+- Examples (contextual to relationship):
+  * If vendor: "Urgent: Vendor Portal Access Verification Required"
+  * If partner: "Partnership Update: Account Verification Needed"
+  * If service provider: "Action Required: Service Agreement Renewal"
+- Size: 16-18px, bold, with 24px spacing above/below
+- This answers visually: "What is this email about in context of OUR relationship?"
+
+PARAGRAPH RHYTHM (CRITICAL):
+- NO uniform paragraph lengths
+- Pattern: Short (2-3 lines) → Medium (4-5 lines) → Short (2-3 lines)
+- Vary block heights intentionally
+- Creates pacing and scannable rhythm
+- Emails are scanned, so rhythm is functional
+
+TYPOGRAPHY:
+- Body: 14-16px, line-height 1.6, color #333/#444
+- Primary focus: 16-18px, bold
+- Section labels: 13px, optional weight
+- Footer: 12px, muted color #666666
+- Use size/weight variation for hierarchy
+
+SPACING:
+- Between paragraphs: 16-20px
+- Around primary focus: 24px above + below
+- Between sections: 24-28px
+- Before footer: 40px+ (clear break)
+
+CTA CONTEXT (MUST BE RELATIONSHIP-SPECIFIC):
+- Add ACTION LABEL before button specific to their relationship
+CTA (CLEAR AND DIRECT):
+- Action label: Simple and obvious, like "Next step:" or "Click below to verify:"
+- Button text: Plain action verb (e.g., "Verify Now", "Confirm Account", "Click Here")
+- NOT: "Facilitate expedited credential authentication"
+- YES: "Verify Your Account"
+- Make it obvious what will happen when they click
+- Spacing: 20px between label and button
+
+FOOTER (SIMPLE):
+- Just company info, phone, email
+- Don't over-explain
+- Small text, light color
+
+TONE & LANGUAGE:
+- Professional but natural (like an email from a coworker)
+- Urgent but not panicked
+- Clear about what the person needs to do
+- No corporate jargon
+- If you hear yourself saying it sounds "corporate-y", simplify it
+- Check: Would a high school graduate understand this?
+
+PARAGRAPH STRUCTURE:
+- Average paragraph: 2-4 sentences, max
+- Short sentences are better than long ones
+- One main idea per paragraph
+- Connect ideas simply ("After you verify...", "Then we'll send...")
+- Break up long lists into short points
+
+OVERALL APPROACH:
+This email should read like it came from a real person at ${partner.name} who needed to contact ${targetCompanyName} about something important.
+- Natural language
+- Clear purpose
+- Easy to act on
+- No mystery about what they should do
+
+CLARITY CHECK:
+Before finalizing - if ANY sentence takes more than 10 seconds to understand, rewrite it simpler.
+Example: Instead of "Your authentication credentials require re-verification", say "We need you to confirm your password."
+
+SCENARIO: Professional, urgent business communication between ${partner.name} and ${targetCompanyName}
+TONE: Direct, clear, helpful
+CTA: Obvious next step${scenarioSuggestion ? `\nVARIATION: ${scenarioSuggestion}` : ''}`
 
     console.log('[/api/email/generate] Generating email for:', {
       target: resolvedDomain,
       partner: partner.name,
       partnerDomain,
+      userMessageLength: userMessage.length,
     })
 
+    // OPTIMIZATION: Dynamic max_tokens calculation based on estimated output
+    const estimatedOutputChars = 3000 // HTML email
     let groqResponse: string
     try {
       groqResponse = await callGroqWithRetry(
         EMAIL_GENERATION_MODEL,
         EMAIL_GENERATION_PROMPT,
         userMessage,
-        1 // max 1 retry for speed
+        1, // max 1 retry for speed
+        estimatedOutputChars
       )
     } catch (groqError) {
       logDomainSearch({
@@ -179,7 +296,7 @@ The email should look like a legitimate business communication FROM the partner 
       )
     }
 
-    // Parse JSON response
+    // OPTIMIZATION: Client-side JSON parsing and validation (moved from LLM)
     let parsedResponse: any
     try {
       // Clean up response - remove markdown code fences if present
@@ -202,10 +319,9 @@ The email should look like a legitimate business communication FROM the partner 
         
         // Try to fix common JSON issues
         try {
-          // Remove literal newlines within string values but preserve structure
           const fixedResponse = cleanedResponse
-            .replace(/:\s*"([^"]*)\n([^"]*)"/, ': "$1 $2"') // Replace newlines in strings with space
-            .replace(/,\s*\n\s*"/, ', "') // Fix newlines after commas
+            .replace(/:\s*"([^"]*)\n([^"]*)"/, ': "$1 $2"')
+            .replace(/,\s*\n\s*"/, ', "')
           
           parsedResponse = JSON.parse(fixedResponse)
           console.log('[/api/email/generate] Successfully recovered from JSON via newline removal')
@@ -260,24 +376,29 @@ The email should look like a legitimate business communication FROM the partner 
       )
     }
 
-    // Build response with partner context and design data
+    // OPTIMIZATION: Update scenario memory for next variation
+    if (previousEmail && parsedResponse.scenario) {
+      const memoryKey = `${sessionId}:${resolvedDomain}`
+      const currentMemory = scenarioMemoryCache.get(memoryKey)
+      const updatedMemory = updateScenarioMemory(currentMemory, resolvedDomain, parsedResponse.scenario)
+      scenarioMemoryCache.set(memoryKey, updatedMemory)
+      console.log('[/api/email/generate] Updated scenario memory:', updatedMemory.scenariosUsed)
+    }
+
+    // Build response with minimal context
     const emailResponse = {
       subject: parsedResponse.subject || 'Urgent Action Required',
       from: parsedResponse.from || `noreply@${partnerDomain}`,
-      from_name: parsedResponse.from_name || partner.name,
       to: parsedResponse.to || `employee@${resolvedDomain}`,
       partner_name: partner.name,
       partner_domain: partnerDomain,
       target_domain: resolvedDomain,
-      target_design: targetDesignData,
       html_body: parsedResponse.html_body || '',
       text_body: parsedResponse.text_body || '',
       cta_text: parsedResponse.cta_text,
       cta_url: parsedResponse.cta_url,
       urgency: parsedResponse.urgency || 'high',
       scenario: parsedResponse.scenario,
-      believability_factors: parsedResponse.believability_factors || [],
-      design_integration: parsedResponse.design_integration,
       generated_at: new Date().toISOString(),
       version: EMAIL_GENERATION_VERSION,
     }

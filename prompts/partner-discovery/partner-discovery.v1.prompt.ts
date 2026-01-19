@@ -108,7 +108,26 @@ If an entity is a parent, owner, or investor:
 - Ownership alone does NOT imply partnership
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📊 CONFIDENCE SCORING
+� URL FIELD (CRITICAL)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+For EVERY partner, you MUST infer or provide the most likely URL:
+
+- If URL is explicitly mentioned or linked on the site: use that URL
+- If partner domain can be inferred from their name: use the inferred domain
+- If you cannot reasonably infer a URL: use empty string ""
+
+Examples:
+- Partner name: "Stripe" → URL: "https://stripe.com"
+- Partner name: "Google Analytics" → URL: "https://analytics.google.com"
+- Partner name: "Local Vendor Corp" → URL: "" (cannot infer)
+- Partner name: "YMCA Victoria" → URL: "https://ymcavictoria.org.au" or "https://ymca.org.au" (best guess)
+
+The URL field is CRITICAL for downstream processing.
+Do NOT leave URLs empty when a reasonable inference can be made.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+�📊 CONFIDENCE SCORING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Assign confidence ONLY based on evidence strength:
@@ -191,7 +210,7 @@ Each PARTNER object:
   "evidence": "Explicit observable evidence",
   "confidence": 0.0–1.0,
   "relationship": "Optional concise description",
-  "url": "https://..." or ""
+  "url": "https://... (MUST infer or leave empty)" ← CRITICAL FIELD
 }
 
 Each CONNECTION object:

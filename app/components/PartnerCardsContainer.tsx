@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import type { PartnerCardViewProps } from '@/app/types'
 import PartnerCard from './PartnerCard'
 import EmailLiveEditor from './EmailLiveEditor'
+import CarouselContainer from './CarouselContainer'
 
 interface PartnerCardsContainerProps {
   domain: string
@@ -203,7 +204,27 @@ export default function PartnerCardsContainer({
     })) : [])
   ].filter(Boolean) as PartnerCardViewProps[]
 
-  const allCards = [...dnsCards, ...partners]
+  // Deduplicate cards by ID to prevent double-ups
+  const uniqueCardMap = new Map<string, PartnerCardViewProps>()
+  
+  // Add DNS cards first
+  dnsCards.forEach((card) => {
+    if (!uniqueCardMap.has(card.id)) {
+      uniqueCardMap.set(card.id, card)
+    }
+  })
+  
+  // Add partners, skipping duplicates by name
+  partners.forEach((partner) => {
+    const isDuplicate = Array.from(uniqueCardMap.values()).some(
+      (card) => card.aiData?.name?.toLowerCase() === partner.aiData?.name?.toLowerCase()
+    )
+    if (!isDuplicate && !uniqueCardMap.has(partner.id)) {
+      uniqueCardMap.set(partner.id, partner)
+    }
+  })
+  
+  const allCards = Array.from(uniqueCardMap.values())
   
   if (typeof window !== 'undefined') {
     console.log('[PartnerCardsContainer] Full dnsData object:', dnsData)
@@ -217,7 +238,7 @@ export default function PartnerCardsContainer({
     }
     console.log('[PartnerCardsContainer] dnsCards created:', dnsCards.length, dnsCards)
     console.log('[PartnerCardsContainer] partners received:', partners.length)
-    console.log('[PartnerCardsContainer] allCards total:', allCards.length)
+    console.log('[PartnerCardsContainer] allCards after dedup:', allCards.length)
   }
 
   if (allCards.length === 0) {
@@ -230,35 +251,14 @@ export default function PartnerCardsContainer({
 
   return (
     <div className="w-full">
-      {/* Combined Infrastructure & Partners Grid */}
-      <div className="w-full">
-        <h2 className="font-bold text-gray-900 mb-2" style={{ fontSize: 'clamp(16px, 4vw, 22px)' }}>
-          Domain Infrastructure & Partners ({allCards.length})
-        </h2>
-        <div className="w-full overflow-hidden"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: `repeat(auto-fill, minmax(210px, 1fr))`,
-            gap: 'clamp(10px, 2.5vw, 14px)',
-            gridAutoRows: 'minmax(290px, auto)',
-            maxHeight: 'calc(100vh - 300px)',
-            overflowY: 'auto',
-            paddingRight: '6px'
-          }}
-        >
-          <AnimatePresence>
-            {allCards.map((card) => (
-              <PartnerCard
-                key={card.id}
-                partner={card}
-                onSelect={handlePartnerSelect}
-                isSelected={selectedPartner?.id === card.id}
-                isLoading={isGeneratingEmail && selectedPartner?.id === card.id}
-              />
-            ))}
-          </AnimatePresence>
-        </div>
-      </div>
+      {/* Carousel with Splide */}
+      <CarouselContainer
+        cards={allCards}
+        selectedPartner={selectedPartner}
+        onPartnerSelect={handlePartnerSelect}
+        onEmailClose={handleEmailClose}
+        isGeneratingEmail={isGeneratingEmail}
+      />
 
       {/* Email Editor Modal */}
       <AnimatePresence>

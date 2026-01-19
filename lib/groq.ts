@@ -22,7 +22,8 @@ export async function callGroqWithRetry(
   model: string,
   systemPrompt: string,
   userMessage: string,
-  maxRetries: number = 2
+  maxRetries: number = 2,
+  estimatedOutputChars: number = 3000 // For dynamic max_tokens
 ): Promise<string> {
   let lastError: Error | null = null
   
@@ -35,13 +36,19 @@ export async function callGroqWithRetry(
     throw new Error('System prompt is empty or undefined')
   }
 
+  // OPTIMIZATION: Dynamic max_tokens instead of fixed 4096
+  // Estimate: 1 token per 4 characters, 20% safety buffer
+  const estimatedTokens = Math.ceil((estimatedOutputChars / 4) * 1.2)
+  const maxTokens = Math.min(2500, Math.max(1500, estimatedTokens))
+  console.log('[Groq] Dynamic max_tokens:', maxTokens, '(estimated output:', estimatedOutputChars, 'chars)')
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       console.log(`[Groq] Attempt ${attempt + 1}/${maxRetries + 1}`)
       const groqClient = getGroqInstance()
       const message = await groqClient.chat.completions.create({
         model,
-        max_tokens: 4096,
+        max_tokens: maxTokens,
         messages: [
           {
             role: 'system',
