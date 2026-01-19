@@ -31,7 +31,7 @@ export default function CarouselContainer({
     // Initialize Splide carousel
     splideRef.current = new Splide(containerRef.current, {
       type: 'slide',
-      perPage: 3,
+      perPage: 4,
       perMove: 1,
       gap: 'clamp(10px, 2.5vw, 14px)',
       autoScroll: {
@@ -44,7 +44,7 @@ export default function CarouselContainer({
       breakpoints: {
         640: { perPage: 1 },
         1024: { perPage: 2 },
-        1280: { perPage: 3 },
+        1280: { perPage: 4 },
       },
       drag: true,
       keyboard: true,

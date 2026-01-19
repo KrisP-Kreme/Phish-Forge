@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import type { PartnerCardViewProps } from '@/app/types'
 import PartnerCard from './PartnerCard'
 import EmailLiveEditor from './EmailLiveEditor'
-import CarouselContainer from './CarouselContainer'
 
 interface PartnerCardsContainerProps {
   domain: string
@@ -250,15 +249,52 @@ export default function PartnerCardsContainer({
   }
 
   return (
-    <div className="w-full">
-      {/* Carousel with Splide */}
-      <CarouselContainer
-        cards={allCards}
-        selectedPartner={selectedPartner}
-        onPartnerSelect={handlePartnerSelect}
-        onEmailClose={handleEmailClose}
-        isGeneratingEmail={isGeneratingEmail}
-      />
+    <div className="w-full space-y-12">
+      {/* Infrastructure Section */}
+      {dnsCards.length > 0 && (
+        <div>
+          <h2 className="text-2xl font-bold mb-6 text-white">Domain Infrastructure & Partners (9)</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {dnsCards.map((card) => (
+              <motion.div
+                key={card.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <PartnerCard
+                  partner={card}
+                  isSelected={selectedPartner?.id === card.id}
+                  onSelect={() => handlePartnerSelect(card)}
+                />
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Partners Section */}
+      {partners.length > 0 && (
+        <div>
+          <h2 className="text-2xl font-bold mb-6 text-white">Associated Partners</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {partners.map((card) => (
+              <motion.div
+                key={card.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <PartnerCard
+                  partner={card}
+                  isSelected={selectedPartner?.id === card.id}
+                  onSelect={() => handlePartnerSelect(card)}
+                />
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Email Editor Modal */}
       <AnimatePresence>
