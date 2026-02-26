@@ -33,7 +33,7 @@ export default function Section({ id, title, subtitle, content, isActive, showBu
             >
               {title}
             </motion.h2>
-            {id === 'home' && (
+            {/* {id === 'home' && (
               <motion.img
                 src="/weldfish.png"
                 alt="weldfish"
@@ -42,7 +42,7 @@ export default function Section({ id, title, subtitle, content, isActive, showBu
                 animate={isActive ? { opacity: 1, scale: 1 } : {}}
                 transition={{ duration: 0.5 }}
               /> 
-            )}
+            )} */}
           </div>
           {content && (
             typeof content === 'string' || typeof content === 'number' ? (

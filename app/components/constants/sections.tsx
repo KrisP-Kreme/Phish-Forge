@@ -1,11 +1,39 @@
 import { Badge } from "../ui/badge"
+import { motion } from "framer-motion"
 
 export const sections = [
-  { 
-    id: 'home', 
-    title: "phishforge.",
-    
-    
+  {
+    id: 'home',
+    content: (
+      <section className="relative h-screen bg-[var(--background)]">
+
+        {/* Top-left logo (HOME ONLY) */}
+        <div className="absolute top-6 left-8 z-10">
+          <span className="text-3xl md:text-4xl font-bold tracking-tight">
+            phishforge<span className="text-[var(--accent)]">.</span>
+          </span>
+        </div>
+
+        {/* Center content */}
+        <div className="h-full flex flex-col items-center justify-center px-8 text-center -translate-y-24">
+          <h1 className="text-5xl md:text-6xl font-bold leading-tight mb-6 max-w-4xl">
+            Forge realistic phishing attacks.<br />
+            Learn how they work.
+          </h1>
+        </div>
+
+        {/* Mascot bottom-center */}
+        <div className="absolute bottom-32 left-1/2 -translate-x-1/2 perspective-1000">
+          <motion.img
+            src="/weldfish.png"
+            alt="PhishForge mascot"
+            className="w-[300px] md:w-[380px] xl:w-[460px]"
+            style={{ transformStyle: "preserve-3d" }}
+          />
+        </div>
+
+      </section>
+    )
   },
   { 
     id: 'how-it-works', 
@@ -146,7 +174,7 @@ export const sections = [
                 <div className="rounded-lg p-3 border w-full max-w-[420px] md:max-w-[520px] mx-auto" style={{ backgroundColor: 'var(--background)', borderColor: 'var(--border)' }}>
                   <div className="aspect-square rounded-lg overflow-hidden" style={{ backgroundColor: 'var(--accent)' }}>
                     <img 
-                      src="https://media.licdn.com/dms/image/v2/D5603AQFaFiAHGH0S1w/profile-displayphoto-shrink_800_800/B56ZdTf2RoG0Ac-/0/1749452547793?e=1769644800&v=beta&t=ha0weoqz5CGxIs-n-wZbTCzdalEKS23FjdWcM2jNYck" 
+                      src="/1749452547793.jpg" 
                       className="w-full h-full object-cover" 
                       style={{ color: 'var(--accent-foreground)' }}
                     />
@@ -179,7 +207,7 @@ export const sections = [
                 <div className="rounded-lg p-3 border w-full max-w-[420px] md:max-w-[520px] mx-auto" style={{ backgroundColor: 'var(--background)', borderColor: 'var(--border)' }}>
                   <div className="aspect-square rounded-lg overflow-hidden" style={{ backgroundColor: 'var(--accent)' }}>
                     <img 
-                      src="https://media.licdn.com/dms/image/v2/D5603AQHgvXs3z9ctCA/profile-displayphoto-shrink_800_800/B56Zb3NGs4GoAc-/0/1747904130971?e=1769644800&v=beta&t=l45iflxyflZSSNJztffd5DZ8PQjkdmtYmPPPhJ-Yn6Y" 
+                      src="/1747904130497.jpg" 
                       className="w-full h-full object-cover" 
                       style={{ color: 'var(--accent-foreground)' }}
                     />
