@@ -14,8 +14,10 @@ function getGroqInstance(): Groq {
   return groq
 }
 
-export function getGroqClient(): Groq {
-  return getGroqInstance()
+export interface GroqCallOptions {
+  temperature?: number;
+  max_tokens?: number;
+  top_p?: number;
 }
 
 export async function callGroqWithRetry(
@@ -23,7 +25,8 @@ export async function callGroqWithRetry(
   systemPrompt: string,
   userMessage: string,
   maxRetries: number = 2,
-  estimatedOutputChars: number = 3000 // For dynamic max_tokens
+  estimatedOutputChars: number = 3000, // For dynamic max_tokens
+  options?: GroqCallOptions
 ): Promise<string> {
   let lastError: Error | null = null
   
@@ -31,6 +34,7 @@ export async function callGroqWithRetry(
   console.log('[Groq] API Key present:', !!process.env.GROQ_API_KEY)
   console.log('[Groq] API Key (first 10 chars):', process.env.GROQ_API_KEY?.substring(0, 10))
   console.log('[Groq] System prompt length:', systemPrompt?.length || 'UNDEFINED')
+  console.log('[Groq] Options:', options || 'defaults')
   
   if (!systemPrompt) {
     throw new Error('System prompt is empty or undefined')
@@ -39,8 +43,9 @@ export async function callGroqWithRetry(
   // OPTIMIZATION: Dynamic max_tokens instead of fixed 4096
   // Estimate: 1 token per 4 characters, 20% safety buffer
   const estimatedTokens = Math.ceil((estimatedOutputChars / 4) * 1.2)
-  const maxTokens = Math.min(2500, Math.max(1500, estimatedTokens))
-  console.log('[Groq] Dynamic max_tokens:', maxTokens, '(estimated output:', estimatedOutputChars, 'chars)')
+  const maxTokens = options?.max_tokens ?? Math.min(2500, Math.max(1500, estimatedTokens))
+  const temperature = options?.temperature ?? 0.7
+  console.log('[Groq] Using temperature:', temperature, 'max_tokens:', maxTokens, '(estimated output:', estimatedOutputChars, 'chars)')
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -49,6 +54,8 @@ export async function callGroqWithRetry(
       const message = await groqClient.chat.completions.create({
         model,
         max_tokens: maxTokens,
+        temperature: temperature,
+        ...(options?.top_p && { top_p: options.top_p }),
         messages: [
           {
             role: 'system',

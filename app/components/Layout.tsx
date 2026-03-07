@@ -1,5 +1,5 @@
 import { ReactNode } from 'react'
-import { Squares } from "./ui/squares-background"
+import { Squares } from "@/components/ui/squares-background"
 
 interface LayoutProps {
   children: ReactNode

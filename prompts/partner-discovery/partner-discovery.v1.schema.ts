@@ -9,6 +9,7 @@ const PartnerSchema = z.object({
     'investor_parent',
     'operational_adjacency',
     'developer_agency',
+    'email_security_provider',
   ]),
   evidence: z.string().min(1, 'Evidence is required'),
   confidence: z.number().min(0).max(1, 'Confidence must be between 0 and 1'),
@@ -42,6 +43,7 @@ export const PartnerDiscoveryResponseSchema = z.object({
     investors_corporate: z.array(PartnerSchema).default([]),
     operational_adjacencies: z.array(PartnerSchema).default([]),
     developer_agency_partners: z.array(PartnerSchema).default([]),
+    email_security_providers: z.array(PartnerSchema).default([]),
   }).default({
     commercial_partners: [],
     marketing_partners: [],
@@ -49,6 +51,7 @@ export const PartnerDiscoveryResponseSchema = z.object({
     investors_corporate: [],
     operational_adjacencies: [],
     developer_agency_partners: [],
+    email_security_providers: [],
   }),
   connections: z.array(ConnectionSchema).optional().default([]),
   deep_connections: z.array(ConnectionSchema).optional().default([]),

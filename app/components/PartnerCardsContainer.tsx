@@ -52,8 +52,112 @@ export default function PartnerCardsContainer({
     })
   }
   
-  // Extract all infrastructure values from report and whois
-  const emailHost = reportData?.domain  // e.g., "Google Workspace", "Mimecast"
+  // Extract email host - try multiple sources to find actual provider name
+  // Extract security services FIRST - handle multiple possible field names and formats
+  let securityServices: any[] = []
+  if (reportData?.security_services) {
+    securityServices = Array.isArray(reportData.security_services) 
+      ? reportData.security_services.filter((s: any) => s)
+      : typeof reportData.security_services === 'string' 
+        ? [reportData.security_services]
+        : []
+  } else if (reportData?.securityServices) {
+    securityServices = Array.isArray(reportData.securityServices)
+      ? reportData.securityServices.filter((s: any) => s)
+      : typeof reportData.securityServices === 'string'
+        ? [reportData.securityServices]
+        : []
+  } else if (reportData?.security) {
+    securityServices = Array.isArray(reportData.security)
+      ? reportData.security.filter((s: any) => s)
+      : typeof reportData.security === 'string'
+        ? [reportData.security]
+        : []
+  } else if (reportData?.services?.security) {
+    // Handle nested services.security structure
+    securityServices = Array.isArray(reportData.services.security)
+      ? reportData.services.security.filter((s: any) => s)
+      : typeof reportData.services.security === 'string'
+        ? [reportData.services.security]
+        : []
+  } else if (reportData?.services && Array.isArray(reportData.services)) {
+    securityServices = reportData.services.filter((s: any) => s)
+  }
+  
+  let emailHost: string | null = null
+  
+  // Try to get email provider from various fields
+  if (reportData?.email_provider) {
+    emailHost = reportData.email_provider
+    console.log('[PartnerCardsContainer] emailHost from email_provider:', emailHost)
+  } else if (reportData?.mail_provider) {
+    emailHost = reportData.mail_provider
+    console.log('[PartnerCardsContainer] emailHost from mail_provider:', emailHost)
+  } else if (reportData?.mx_provider) {
+    emailHost = reportData.mx_provider
+    console.log('[PartnerCardsContainer] emailHost from mx_provider:', emailHost)
+  } else if (reportData?.domain && reportData.domain !== 'Self-Hosted / Custom' && reportData.domain !== 'Other' && reportData.domain !== 'Custom') {
+    emailHost = reportData.domain
+    console.log('[PartnerCardsContainer] emailHost from domain:', emailHost)
+  } else {
+    console.log('[PartnerCardsContainer] No direct emailHost field, reportData.domain is:', reportData?.domain)
+  }
+  
+  // If still no email host found or it's a generic label, try to infer from security services first, then MX records
+  if (!emailHost || emailHost === 'Self-Hosted / Custom' || emailHost === 'Other' || emailHost === 'Custom') {
+    console.log('[PartnerCardsContainer] emailHost is null/generic, attempting inference from securityServices...')
+    // First check if we have Proofpoint or other security providers that also provide email hosting
+    if (securityServices && Array.isArray(securityServices) && securityServices.length > 0) {
+      console.log('[PartnerCardsContainer] Checking securityServices for email provider match:', securityServices)
+      const knownEmailProviders = ['Proofpoint', 'Mimecast', 'Microsoft', 'Google']
+      for (const service of securityServices) {
+        const serviceName = typeof service === 'string' ? service : (service?.name || '')
+        console.log('[PartnerCardsContainer] Checking service:', serviceName)
+        for (const provider of knownEmailProviders) {
+          if (serviceName.toLowerCase().includes(provider.toLowerCase())) {
+            emailHost = provider === 'Microsoft' ? 'Microsoft 365' : provider
+            console.log('[PartnerCardsContainer] Matched emailHost from security provider:', emailHost)
+            break
+          }
+        }
+        if (emailHost) break
+      }
+    } else {
+      console.log('[PartnerCardsContainer] No security services to check, securityServices:', securityServices)
+    }
+    
+    // If still no host, try MX records
+    if (!emailHost && dnsCardData?.dnsRecords?.MX && Array.isArray(dnsCardData.dnsRecords.MX)) {
+      console.log('[PartnerCardsContainer] Trying MX record inference...')
+      const mxRecord = dnsCardData.dnsRecords.MX[0]
+      if (mxRecord) {
+        const mxValue = typeof mxRecord === 'string' ? mxRecord : mxRecord.value
+        console.log('[PartnerCardsContainer] MX Record value:', mxValue)
+        // Try to infer provider from MX record domain
+        if (mxValue && typeof mxValue === 'string') {
+          // Extract the domain part from MX record (e.g., "mail.google.com" -> "Google")
+          const mxDomain = mxValue.toLowerCase()
+          if (mxDomain.includes('google')) {
+            emailHost = 'Google Workspace'
+          } else if (mxDomain.includes('microsoft') || mxDomain.includes('outlook') || mxDomain.includes('office365')) {
+            emailHost = 'Microsoft 365'
+          } else if (mxDomain.includes('proofpoint')) {
+            emailHost = 'Proofpoint'
+          } else if (mxDomain.includes('mimecast')) {
+            emailHost = 'Mimecast'
+          } else {
+            // Extract the first meaningful part of the domain
+            const parts = mxDomain.split('.')
+            const provider = parts[0]?.charAt(0).toUpperCase() + parts[0]?.slice(1)
+            if (provider && provider.length > 1) {
+              emailHost = provider
+            }
+          }
+        }
+      }
+    }
+  }
+  
   let registrar = whoisData?.registrar || whoisData?.registrarName  // e.g., "Domain Directors Pty Ltd trading as Instra"
   let registrarTradingName = null
   
@@ -64,10 +168,21 @@ export default function PartnerCardsContainer({
     registrar = parts[0]?.trim() || registrar
   }
   
-  const hostingProvider = whoisData?.hosting_provider || whoisData?.hostingProvider  // e.g., "Bluehost", "Telstra"
+  const hostingProvider = (() => {
+    const provider = whoisData?.hosting_provider || whoisData?.hostingProvider
+    // Filter out if it looks like a domain/nameserver (contains dots, looks like compusult.com.au, ns1.example.com)
+    if (provider && typeof provider === 'string') {
+      const lowerProvider = provider.toLowerCase()
+      // Skip if it looks like a domain or IP
+      if (lowerProvider.includes('.') || /^\d+\.\d+\.\d+\.\d+$/.test(provider)) {
+        return null
+      }
+      return provider
+    }
+    return provider
+  })() // e.g., "Bluehost", "Telstra" - NOT nameservers or domains
   const technicalContact = whoisData?.technical_contact?.name || whoisData?.technicalContact?.name  // e.g., "Website Development", "John Doe"
   const registrarUrl = whoisData?.registrar_url || whoisData?.registrarUrl  // e.g., "https://www.crazydomains.com.au/contact/"
-  const securityServices = reportData?.security_services || reportData?.securityServices || []
   
   // Extract registrar name from URL for display
   const registrarDisplayName = (() => {
@@ -85,10 +200,15 @@ export default function PartnerCardsContainer({
   })()
   
   console.log('[PartnerCardsContainer] reportData full object:', reportData)
-  console.log('[PartnerCardsContainer] Security services extracted:', securityServices)
+  console.log('[PartnerCardsContainer] reportData keys:', reportData ? Object.keys(reportData) : 'no reportData')
+  console.log('[PartnerCardsContainer] Security services extracted:', securityServices, 'Length:', securityServices.length)
   console.log('[PartnerCardsContainer] Security services type:', typeof securityServices, 'Is array:', Array.isArray(securityServices))
+  if (securityServices && securityServices.length > 0) {
+    console.log('[PartnerCardsContainer] First security service:', securityServices[0], 'Type:', typeof securityServices[0])
+  }
   
-  console.log('[PartnerCardsContainer] Extracted values:', { emailHost, registrar, registrarTradingName, hostingProvider, technicalContact, registrarDisplayName, securityServices })
+  console.log('[PartnerCardsContainer] Email host value:', emailHost, 'Type:', typeof emailHost, 'Is null?', emailHost === null, 'Is empty string?', emailHost === '')
+  console.log('[PartnerCardsContainer] Extracted DNS values:', { emailHost, registrarTradingName, registrarDisplayName, hostingProvider, technicalContact, securityServices })
   
   const dnsCards: PartnerCardViewProps[] = [
     hostingProvider && {
@@ -127,14 +247,15 @@ export default function PartnerCardsContainer({
         discoveredAt: new Date().toISOString(),
       }
     },
-    registrarDisplayName && {
+    // Use registrarTradingName (brand name) if available, otherwise use registrarDisplayName
+    (registrarTradingName || registrarDisplayName) && {
       id: 'dns-provider',
       domain: domain,
       dnsData: {
         records: { A: [], MX: [], NS: [], TXT: [] }
       },
       aiData: {
-        name: registrarDisplayName,
+        name: registrarTradingName || registrarDisplayName,
         type: 'commercial_vendor',
         evidence: 'Domain registrar - where domain was purchased',
         confidence: 1,
@@ -164,47 +285,52 @@ export default function PartnerCardsContainer({
         discoveredAt: new Date().toISOString(),
       }
     },
-    registrarTradingName && {
-      id: 'dns-registrar-brand',
-      domain: domain,
-      dnsData: {
-        records: { A: [], MX: [], NS: [], TXT: [] }
-      },
-      aiData: {
-        name: registrarTradingName,
-        type: 'commercial_vendor',
-        evidence: 'Domain registrar (trading name)',
-        confidence: 1,
-        relationship: 'Domain provider - handles domain registration & management',
-        isDNS: true
-      },
-      mergedMetadata: {
-        discoveredAt: new Date().toISOString(),
-      }
-    },
     // Add security services as cards
-    ...(Array.isArray(securityServices) ? securityServices.map((service: string, idx: number) => ({
-      id: `dns-security-${idx}`,
-      domain: domain,
-      dnsData: {
-        records: { A: [], MX: [], NS: [], TXT: [] }
-      },
-      aiData: {
-        name: service,
-        type: 'commercial_vendor',
-        evidence: 'Security service provider',
-        confidence: 1,
-        relationship: 'Provides security & protection',
-        isDNS: true
-      },
-      mergedMetadata: {
-        discoveredAt: new Date().toISOString(),
+    ...(Array.isArray(securityServices) && securityServices.length > 0 ? securityServices.map((service: any, idx: number) => {
+      // Handle both string and object formats
+      const serviceName = typeof service === 'string' ? service : (service?.name || service?.provider || String(service))
+      
+      return {
+        id: `dns-security-${idx}`,
+        domain: domain,
+        dnsData: {
+          records: { A: [], MX: [], NS: [], TXT: [] }
+        },
+        aiData: {
+          name: serviceName,
+          type: 'email_security_provider',
+          evidence: 'Email security & threat protection provider',
+          confidence: 1,
+          relationship: 'Provides email security & protection',
+          isDNS: true
+        },
+        mergedMetadata: {
+          discoveredAt: new Date().toISOString(),
+        }
       }
-    })) : [])
+    }) : [])
   ].filter(Boolean) as PartnerCardViewProps[]
+
+  // Log DNS cards created
+  console.log('[PartnerCardsContainer] DNS Cards created:', dnsCards.length)
+  dnsCards.forEach((card, idx) => {
+    console.log(`  [${idx}] ${card.id}: ${card.aiData?.name} (${card.aiData?.type})`)
+  })
 
   // Deduplicate cards by ID to prevent double-ups
   const uniqueCardMap = new Map<string, PartnerCardViewProps>()
+  
+  // Helper function to normalize names for comparison (remove extra spaces, handle "trading as", etc)
+  const normalizeName = (name: string | undefined): string => {
+    if (!name) return ''
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, ' ')
+      .replace(/\(.*\)/g, '') // Remove parenthetical content
+      .replace(/trading as.*$/i, '') // Remove "trading as" suffixes
+      .trim()
+  }
   
   // Add DNS cards first
   dnsCards.forEach((card) => {
@@ -213,13 +339,45 @@ export default function PartnerCardsContainer({
     }
   })
   
-  // Add partners, skipping duplicates by name
-  partners.forEach((partner) => {
-    const isDuplicate = Array.from(uniqueCardMap.values()).some(
-      (card) => card.aiData?.name?.toLowerCase() === partner.aiData?.name?.toLowerCase()
-    )
+  // Filter partners to only include those with meaningful sources and non-generic evidence
+  const filteredPartners = partners.filter((partner) => {
+    const evidence = partner.aiData?.evidence || ''
+    const sourceName = partner.aiData?.name || ''
+    
+    // Only exclude if evidence is empty or extremely short
+    if (!evidence || evidence.trim().length < 10) {
+      return false
+    }
+    
+    // Exclude only clearly generic/placeholder evidence
+    const genericPatterns = [
+      /^(found|mentioned|listed|noted)$/i,
+      /^(generic|placeholder|example|test)$/i,
+    ]
+    
+    const isGeneric = genericPatterns.some(pattern => pattern.test(evidence))
+    
+    // Keep all partners with real, non-empty evidence
+    return !isGeneric
+  })
+  
+  console.log('[PartnerCardsContainer] Partners before filtering:', partners.length)
+  console.log('[PartnerCardsContainer] Partners after filtering:', filteredPartners.length)
+  
+  // Add partners, skipping duplicates by normalized name
+  filteredPartners.forEach((partner) => {
+    const partnerNormalized = normalizeName(partner.aiData?.name)
+    
+    // Check if this partner name already exists in our unique map
+    const isDuplicate = Array.from(uniqueCardMap.values()).some((card) => {
+      const cardNormalized = normalizeName(card.aiData?.name)
+      return cardNormalized === partnerNormalized && partnerNormalized !== ''
+    })
+    
     if (!isDuplicate && !uniqueCardMap.has(partner.id)) {
       uniqueCardMap.set(partner.id, partner)
+    } else if (isDuplicate) {
+      console.log(`[PartnerCardsContainer] Skipping duplicate partner: ${partner.aiData?.name}`)
     }
   })
   
@@ -235,9 +393,16 @@ export default function PartnerCardsContainer({
         console.log(`  ${key}:`, value)
       })
     }
-    console.log('[PartnerCardsContainer] dnsCards created:', dnsCards.length, dnsCards)
-    console.log('[PartnerCardsContainer] partners received:', partners.length)
+    console.log('[PartnerCardsContainer] dnsCards created:', dnsCards.length)
+    dnsCards.forEach((card, idx) => {
+      console.log(`  [${idx}] ${card.id}: ${card.aiData?.name}`)
+    })
+    console.log('[PartnerCardsContainer] partners received:', partners.length, partners.slice(0, 3))
+    console.log('[PartnerCardsContainer] After dedup - uniqueCardMap size:', uniqueCardMap.size)
     console.log('[PartnerCardsContainer] allCards after dedup:', allCards.length)
+    allCards.forEach((card, idx) => {
+      console.log(`  [${idx}] ${card.id}: ${card.aiData?.name}`)
+    })
   }
 
   if (allCards.length === 0) {
@@ -250,35 +415,12 @@ export default function PartnerCardsContainer({
 
   return (
     <div className="w-full space-y-12">
-      {/* Infrastructure Section */}
-      {dnsCards.length > 0 && (
+      {/* All Partners Section (DNS + AI-discovered, deduplicated) */}
+      {allCards.length > 0 && (
         <div>
-          <h2 className="text-2xl font-bold mb-6 text-white">Domain Infrastructure & Partners (9)</h2>
+          <h2 className="text-2xl font-bold mb-6 text-white">Domain Infrastructure & Partners ({allCards.length})</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {dnsCards.map((card) => (
-              <motion.div
-                key={card.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-              >
-                <PartnerCard
-                  partner={card}
-                  isSelected={selectedPartner?.id === card.id}
-                  onSelect={() => handlePartnerSelect(card)}
-                />
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Partners Section */}
-      {partners.length > 0 && (
-        <div>
-          <h2 className="text-2xl font-bold mb-6 text-white">Associated Partners</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {partners.map((card) => (
+            {allCards.map((card) => (
               <motion.div
                 key={card.id}
                 initial={{ opacity: 0, y: 20 }}

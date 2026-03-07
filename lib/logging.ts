@@ -22,7 +22,3 @@ export function logDomainSearch(log: DomainSearchLog): void {
     console.log(`[Domain Search] ${log.domain} (${log.source}):`, log.success ? 'SUCCESS' : `FAILED - ${log.errorType}`)
   }
 }
-
-export function getDomainSearchLogs(): DomainSearchLog[] {
-  return [...logs]
-}
