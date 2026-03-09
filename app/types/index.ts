@@ -50,7 +50,7 @@ export interface Section {
   id: string
   title: string
   subtitle?: ReactNode
-  content?: ReactNode
+  content?: ReactNode | ((isActive: boolean) => ReactNode)
   showButton?: boolean
   buttonText?: string
 }
