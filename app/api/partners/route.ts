@@ -481,11 +481,35 @@ Return ONLY valid JSON matching the schema. No markdown, no code blocks.`
     })
 
     const finalPartners = [...allPartners, ...connectionCards]
+    
+    // Add the target domain itself as a selectable partner for client email generation
+    const companyName = domain.replace(/^www\./, '').split('.')[0].replace(/[-_]/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+    const selfCard: PartnerCardViewProps = {
+      id: `${domain}-self-0`,
+      domain,
+      dnsData: structuredDNS,
+      aiData: {
+        type: 'client_email',
+        name: `${companyName} (Client Emails)`,
+        evidence: 'Target domain itself for generating client-focused emails using company branding',
+        confidence: 1.0,
+        relationship: 'Client Communication',
+        url: `https://${domain}`,
+      },
+      mergedMetadata: {
+        discoveredAt: validatedResponse.timestamp,
+        sources: ['target_domain'],
+        relevanceScore: 1.0,
+      },
+    }
+    finalPartners.push(selfCard)
+    
     console.log('\n[/api/partners] ════════════════════════════════════════════════════════════════════')
     console.log(`[/api/partners] FINAL RESULT: ${finalPartners.length} partners returned`)
     console.log('[/api/partners] Partners breakdown:')
     console.log(`  - From partner_ecosystem: ${allPartners.length}`)
     console.log(`  - From connections: ${connectionCards.length}`)
+    console.log(`  - Self (target domain): 1`)
     console.log('[/api/partners] Partner card details:')
     finalPartners.forEach((card, idx) => {
       console.log(`  [${idx}] ${card.aiData.name} (${card.aiData.type}) - Confidence: ${card.aiData.confidence}`)

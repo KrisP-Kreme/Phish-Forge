@@ -196,17 +196,42 @@ function extractColorsOptimized(html: string): Record<string, string | undefined
 function extractFontsOptimized(html: string): Record<string, string | undefined> {
   const fonts: Record<string, string | undefined> = {}
   
-  // OPTIMIZATION: Limit search to first N characters, stop at first font
+  // OPTIMIZATION: Limit search to first N characters
   const searchContent = html.substring(0, SCRAPE_LIMITS.css_search_scope)
 
-  const googleFontsMatch = searchContent.match(
-    /font-family:\s*['"]?([^;'"]+?)['"]?(?:;|$)/i
-  )
-  if (googleFontsMatch) {
-    const fontName = googleFontsMatch[1].replace(/[';]/g, '').trim()
-    if (fontName.length > 0) {
-      fonts.primary = fontName
+  // Look for @font-face declarations first (most accurate)
+  const fontFaceMatches = searchContent.matchAll(/@font-face\s*\{[^}]*font-family:\s*['"]?([^;'"]+)['"]?/gi)
+  const fontFamilies: string[] = []
+  for (const match of fontFaceMatches) {
+    if (match[1]) {
+      fontFamilies.push(match[1].replace(/['"]/g, '').trim())
     }
+  }
+
+  // Also look for font-family in styles
+  const fontFamilyMatches = searchContent.matchAll(/font-family:\s*['"]?([^;'"]+)['"]?/gi)
+  for (const match of fontFamilyMatches) {
+    if (match[1]) {
+      const font = match[1].replace(/['"]/g, '').trim()
+      if (!fontFamilies.includes(font) && !font.toLowerCase().includes('serif') && !font.toLowerCase().includes('sans')) {
+        fontFamilies.push(font)
+      }
+    }
+  }
+
+  // Also check Google Fonts links
+  const googleFontsMatch = searchContent.match(/https:\/\/fonts\.googleapis\.com\/css[^"']*family=([^&"']+)/i)
+  if (googleFontsMatch && googleFontsMatch[1]) {
+    const decoded = decodeURIComponent(googleFontsMatch[1])
+    fontFamilies.push(decoded.split(':')[0])
+  }
+
+  // Prioritize custom fonts, then common web fonts
+  const customFonts = fontFamilies.filter(f => !['Arial', 'Helvetica', 'Times', 'Georgia', 'Verdana', 'Courier'].includes(f.split(',')[0].trim()))
+  const primaryFont = customFonts[0] || fontFamilies[0]
+
+  if (primaryFont) {
+    fonts.primary = primaryFont.split(',')[0].trim()
   }
 
   return fonts

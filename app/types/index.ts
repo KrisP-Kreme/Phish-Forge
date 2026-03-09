@@ -79,7 +79,7 @@ export interface DNSDataSection {
 
 // AI Data Section - single discovered relationship
 export interface AIDataSection {
-  type: 'commercial_vendor' | 'marketing_agency' | 'technology_platform' | 'investor_parent' | 'operational_adjacency' | 'developer_agency'
+  type: 'commercial_vendor' | 'marketing_agency' | 'technology_platform' | 'investor_parent' | 'operational_adjacency' | 'developer_agency' | 'client_email'
   name: string
   evidence: string
   confidence: number

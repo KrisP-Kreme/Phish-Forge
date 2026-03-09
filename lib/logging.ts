@@ -2,7 +2,7 @@
 export interface DomainSearchLog {
   timestamp: string
   domain: string
-  source: 'partner_discovery' | 'email_generation'
+  source: 'partner_discovery' | 'email_generation' | 'domain_analysis'
   success: boolean
   errorType?: string
 }

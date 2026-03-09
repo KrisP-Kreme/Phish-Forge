@@ -7,6 +7,7 @@ import {
   EMAIL_GENERATION_MODEL,
   EMAIL_GENERATION_VERSION,
 } from '@/prompts/email-generation/email-generation.prompt'
+import { OSINT_DOMAIN_ANALYSIS_PROMPT } from '@/prompts/osint-domain-analysis/osint-domain-analysis.prompt'
 import { scrapeWebsite } from '@/lib/website-scraper'
 import { extractColorPalette } from '@/lib/color-palette'
 import { searchDomain } from '@/lib/domain-resolver'
@@ -100,24 +101,102 @@ export async function POST(request: NextRequest) {
       console.log('[/api/email/generate] Extracted color palette from partner:', palette)
     }
 
+    // Run advanced design scraping using the script
+    console.log('[/api/email/generate] Running advanced design scraping on partner domain:', partnerDomain)
+    let advancedDesign: any = null
+    try {
+      const { spawn } = require('child_process')
+      const scriptPath = require('path').join(process.cwd(), 'scripts', 'scrape-design.js')
+      
+      const child = spawn('node', [scriptPath, `https://${partnerDomain}`], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        cwd: process.cwd(),
+        env: { ...process.env, HEADLESS_MODE: 'true' }, // Suppress browser opening
+      })
+
+      let stdout = ''
+      let stderr = ''
+
+      child.stdout.on('data', (data: Buffer) => {
+        stdout += data.toString()
+      })
+
+      child.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString()
+      })
+
+      await new Promise((resolve, reject) => {
+        child.on('close', (code: number) => {
+          if (code === 0) {
+            resolve(null)
+          } else {
+            reject(new Error(`Script exited with code ${code}: ${stderr}`))
+          }
+        })
+        child.on('error', reject)
+      })
+
+      // Parse the output - the script logs summary at the end
+      const lines = stdout.split('\n')
+      const resultLine = lines.find((line: string) => line.includes('Header font') || line.includes('Body font'))
+      if (resultLine) {
+        // Extract fonts from the summary
+        const headerMatch = stdout.match(/Header font\s*:\s*([^\n]+)/)
+        const bodyMatch = stdout.match(/Body font\s*:\s*([^\n]+)/)
+        const backgroundMatch = stdout.match(/Background\s*:\s*([^\n]+)/)
+        const textMatch = stdout.match(/Text\s*:\s*([^\n]+)/)
+        const primaryMatch = stdout.match(/Primary\s*:\s*([^\n]+)/)
+        const secondaryMatch = stdout.match(/Secondary\s*:\s*([^\n]+)/)
+        const accentMatch = stdout.match(/Accent\s*:\s*([^\n]+)/)
+
+        advancedDesign = {
+          headerFont: headerMatch ? headerMatch[1].trim() : null,
+          bodyFont: bodyMatch ? bodyMatch[1].trim() : null,
+          background: backgroundMatch ? backgroundMatch[1].trim() : null,
+          text: textMatch ? textMatch[1].trim() : null,
+          primary: primaryMatch ? primaryMatch[1].trim() : null,
+          secondary: secondaryMatch ? secondaryMatch[1].trim() : null,
+          accent: accentMatch ? accentMatch[1].trim() : null,
+        }
+        console.log('[/api/email/generate] Advanced design data:', advancedDesign)
+      }
+    } catch (designError) {
+      console.warn('[/api/email/generate] Advanced design scraping failed, using basic data:', designError)
+    }
+
+    // Run OSINT analysis on the partner domain
+    console.log('[/api/email/generate] Running OSINT analysis on partner domain:', partnerDomain)
+    let osintAnalysis: any = null
+    try {
+      const osintUserMessage = `Analyze the following domain based on the provided website content.
+
+Domain: ${partnerDomain}
+
+Website Content (scraped from website):
+${scrapedData.title || 'No title'}
+${scrapedData.description || 'No description'}
+${scrapedData.colors ? `Colors: ${JSON.stringify(scrapedData.colors)}` : ''}
+${scrapedData.fonts ? `Fonts: ${JSON.stringify(scrapedData.fonts)}` : ''}
+
+Provide a comprehensive OSINT analysis following the schema exactly.`
+
+      const osintResponse = await callGroqWithRetry(
+        'llama-3.3-70b-versatile',
+        OSINT_DOMAIN_ANALYSIS_PROMPT,
+        osintUserMessage,
+        1, // 1 retry
+        2048, // smaller for analysis
+        { temperature: 0.2 }
+      )
+
+      const cleanedOsint = osintResponse.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim()
+      osintAnalysis = JSON.parse(cleanedOsint)
+      console.log('[/api/email/generate] OSINT analysis completed')
+    } catch (osintError) {
+      console.warn('[/api/email/generate] OSINT analysis failed, continuing without it:', osintError)
+    }
+
     // OPTIMIZATION: Build minimal design data context (~35 tokens instead of ~450)
-    const targetDesignData: TargetWebsiteDesign = {
-      domain: partnerDomain,
-      colors: scrapedData.colors,
-      fonts: scrapedData.fonts,
-      logo: scrapedData.logo,
-      favicon: scrapedData.favicon,
-      palette: palette || undefined,
-    }
-
-    // OPTIMIZATION: Compact design digest for prompt (minimal tokens)
-    const designDigest = {
-      primary_color: palette?.dominant || scrapedData.colors?.primary || '#0066cc',
-      secondary_color: palette?.secondary || scrapedData.colors?.secondary || '#0052a3',
-      primary_font: scrapedData.fonts?.primary || 'Arial, sans-serif',
-      logo_url: scrapedData.logo || `https://img.logo.dev/${partnerDomain}`,
-    }
-
     // OPTIMIZATION: Replace full previousEmail with scenario suggestion
     let scenarioSuggestion = ''
     if (previousEmail) {
@@ -138,123 +217,56 @@ export async function POST(request: NextRequest) {
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ')
 
-    const userMessage = `Generate a CRYSTAL CLEAR phishing simulation email - simple enough for ANY employee to understand in 30 seconds:
+    // Format design data clearly for the AI
+    const designSection = `USE THIS FOR FONT AND COLOUR SCHEME:
+Header font : ${advancedDesign?.headerFont || scrapedData.fonts?.primary || 'Arial, sans-serif'}
+Body font : ${advancedDesign?.bodyFont || scrapedData.fonts?.primary || 'Arial, sans-serif'}
+Background : ${advancedDesign?.background || scrapedData.colors?.primary || '#ffffff'}
+Text : ${advancedDesign?.text || scrapedData.colors?.secondary || '#333333'}
+Heading : ${advancedDesign?.heading || '#000000'}
+Primary : ${advancedDesign?.primary || palette?.dominant || scrapedData.colors?.primary || '#0066cc'}
+Secondary : ${advancedDesign?.secondary || palette?.secondary || scrapedData.colors?.secondary || '#f0f5fa'}
+Accent : ${advancedDesign?.accent || palette?.accent || scrapedData.colors?.primary || '#0066cc'}
+Palette : ${advancedDesign?.palette || `${advancedDesign?.primary || '#0066cc'}, ${advancedDesign?.secondary || '#f0f5fa'}`}
 
-CLARITY FIRST:
-- Write like you're talking to a busy employee who doesn't have time for jargon
-- First sentence must say WHY they should care
-- Every paragraph should be understandable by someone with no technical knowledge
-- Avoid jargon: no "facilitate", "leverage", "synergize", "operationalize", etc.
-- Use simple words: "need", "want", "must", "check", "verify", "click here"
-- SHORT paragraphs - max 3-4 lines each
-- Active voice ("We need you to...") not passive ("Implementation of...")
-- If you have to read it twice, it's not clear enough
+Logo URL: https://img.logo.dev/${partnerDomain}?token=pk_LMYBshZrSNWjexfaZvNkAQ`
 
-BUSINESS RELATIONSHIP CONTEXT (MAKE IT RELEVANT):
-- Sender Company: ${partner.name}
-- Target Company: ${targetCompanyName}
-- Relationship Type: ${partner.relationship || 'Business Partner'}
-- Partner Type: ${partner.type || 'Service Provider'}
+    // Build the user message with structured design data and OSINT (matching successful format)
+    // Create a well-formatted organization profile from OSINT data
+    const organizationSection = osintAnalysis 
+      ? `
+domain: ${partnerDomain}
+organization_name: ${osintAnalysis.organization_name || partner.name}
+organization_type: ${osintAnalysis.organization_type || 'Unknown'}
 
-Why this matters: Reference their actual business together. Make it obvious why ${partner.name} would contact ${targetCompanyName}.
+business_activities:
+${osintAnalysis.business_activities?.map((activity: any) => `  - ${activity.activity}: ${activity.description}`).join('\n') || 'See OSINT analysis below'}
 
-SENDER DETAILS:
-- Company: ${partner.name}
-- Domain: ${partnerDomain}
-- To: ${targetCompanyName}
+monetization:
+  does_bill_for_services: ${osintAnalysis.monetization?.does_bill_for_services ?? true}
+  billing_model: ${osintAnalysis.monetization?.billing_model || 'Standard business model'}
 
-BRAND DESIGN ELEMENTS:
-- Logo: ${designDigest.logo_url}
-- Primary Color: ${designDigest.primary_color}
-- Secondary Color: ${designDigest.secondary_color}
+target_customers:
+${osintAnalysis.target_customers?.map((customer: any) => `  - ${customer.customer_type}`).join('\n') || 'Multiple customer segments'}
 
-CRITICAL EMAIL STRUCTURE:
+industries:
+${osintAnalysis.industries?.map((ind: any) => `  - ${ind.industry}`).join('\n') || 'See primary business'}
 
-GREETING (SIMPLE):
-- Format: "Hi ${targetCompanyName} team,"
-- That's it. Direct and clear.
+geographic_focus:
+${osintAnalysis.geographic_focus?.map((geo: any) => `  - ${geo.region}`).join('\n') || 'Global'}
 
-OPENING (SAY WHY THEY SHOULD READ THIS):
-- One short sentence explaining the reason
-- Example: "We noticed your account needs verification for our payment system to keep working."
-- NOT: "Operational adjacency requires verification protocol implementation"
+key_public_entities:
+${osintAnalysis.key_public_entities?.map((entity: any) => `  - ${entity.name}: ${entity.relationship}`).join('\n') || 'N/A'}
+`
+      : `domain: ${partnerDomain}
+organization_name: ${partner.name}
+organization_type: Technology/Service Provider`;
 
-MAIN CONTENT (CRYSTAL CLEAR):
-- Use very short paragraphs
-- One idea per paragraph
-- Explain the "why" in plain English
-- Use concrete examples
-- Examples (contextual to relationship):
-  * If vendor: "Urgent: Vendor Portal Access Verification Required"
-  * If partner: "Partnership Update: Account Verification Needed"
-  * If service provider: "Action Required: Service Agreement Renewal"
-- Size: 16-18px, bold, with 24px spacing above/below
-- This answers visually: "What is this email about in context of OUR relationship?"
+    const userMessage = `${designSection}
 
-PARAGRAPH RHYTHM (CRITICAL):
-- NO uniform paragraph lengths
-- Pattern: Short (2-3 lines) → Medium (4-5 lines) → Short (2-3 lines)
-- Vary block heights intentionally
-- Creates pacing and scannable rhythm
-- Emails are scanned, so rhythm is functional
+${organizationSection}
 
-TYPOGRAPHY:
-- Body: 14-16px, line-height 1.6, color #333/#444
-- Primary focus: 16-18px, bold
-- Section labels: 13px, optional weight
-- Footer: 12px, muted color #666666
-- Use size/weight variation for hierarchy
-
-SPACING:
-- Between paragraphs: 16-20px
-- Around primary focus: 24px above + below
-- Between sections: 24-28px
-- Before footer: 40px+ (clear break)
-
-CTA CONTEXT (MUST BE RELATIONSHIP-SPECIFIC):
-- Add ACTION LABEL before button specific to their relationship
-CTA (CLEAR AND DIRECT):
-- Action label: Simple and obvious, like "Next step:" or "Click below to verify:"
-- Button text: Plain action verb (e.g., "Verify Now", "Confirm Account", "Click Here")
-- NOT: "Facilitate expedited credential authentication"
-- YES: "Verify Your Account"
-- Make it obvious what will happen when they click
-- Spacing: 20px between label and button
-
-FOOTER (SIMPLE):
-- Just company info, phone, email
-- Don't over-explain
-- Small text, light color
-
-TONE & LANGUAGE:
-- Professional but natural (like an email from a coworker)
-- Urgent but not panicked
-- Clear about what the person needs to do
-- No corporate jargon
-- If you hear yourself saying it sounds "corporate-y", simplify it
-- Check: Would a high school graduate understand this?
-
-PARAGRAPH STRUCTURE:
-- Average paragraph: 2-4 sentences, max
-- Short sentences are better than long ones
-- One main idea per paragraph
-- Connect ideas simply ("After you verify...", "Then we'll send...")
-- Break up long lists into short points
-
-OVERALL APPROACH:
-This email should read like it came from a real person at ${partner.name} who needed to contact ${targetCompanyName} about something important.
-- Natural language
-- Clear purpose
-- Easy to act on
-- No mystery about what they should do
-
-CLARITY CHECK:
-Before finalizing - if ANY sentence takes more than 10 seconds to understand, rewrite it simpler.
-Example: Instead of "Your authentication credentials require re-verification", say "We need you to confirm your password."
-
-SCENARIO: Professional, urgent business communication between ${partner.name} and ${targetCompanyName}
-TONE: Direct, clear, helpful
-CTA: Obvious next step${scenarioSuggestion ? `\nVARIATION: ${scenarioSuggestion}` : ''}`
+Generate a professional phishing simulation email now. Use ONLY the complete HTML code starting with <!DOCTYPE html> and ending with </html>. Do NOT output JSON or any wrapper - only the raw HTML.`
 
     console.log('[/api/email/generate] Generating email for:', {
       target: resolvedDomain,
@@ -296,64 +308,42 @@ CTA: Obvious next step${scenarioSuggestion ? `\nVARIATION: ${scenarioSuggestion}
       )
     }
 
-    // OPTIMIZATION: Client-side JSON parsing and validation (moved from LLM)
+    // OPTIMIZATION: Client-side HTML parsing and validation
     let parsedResponse: any
     try {
       // Clean up response - remove markdown code fences if present
-      let cleanedResponse = groqResponse
-        .replace(/^```json\n?/, '')
-        .replace(/^```\n?/, '')
+      let htmlResponse = groqResponse
+        .replace(/^```html\n?/, '')
+        .replace(/^```(?:javascript|jsx|typescript|tsx)?\n?/, '')
         .replace(/\n?```$/, '')
         .trim()
 
-      // Try to find JSON object in response
-      const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/)
-      if (jsonMatch) {
-        cleanedResponse = jsonMatch[0]
+      // Extract subject from HTML title or h1
+      let subject = 'Important Security Update Required'
+      const titleMatch = htmlResponse.match(/<title[^>]*>([^<]+)<\/title>/i)
+      const h1Match = htmlResponse.match(/<h1[^>]*>([^<]+)<\/h1>/i)
+      if (titleMatch) {
+        subject = titleMatch[1].trim()
+      } else if (h1Match) {
+        subject = h1Match[1].trim()
       }
 
-      try {
-        parsedResponse = JSON.parse(cleanedResponse)
-      } catch (parseError) {
-        console.error('[/api/email/generate] First JSON parse attempt failed')
-        
-        // Try to fix common JSON issues
-        try {
-          const fixedResponse = cleanedResponse
-            .replace(/:\s*"([^"]*)\n([^"]*)"/, ': "$1 $2"')
-            .replace(/,\s*\n\s*"/, ', "')
-          
-          parsedResponse = JSON.parse(fixedResponse)
-          console.log('[/api/email/generate] Successfully recovered from JSON via newline removal')
-        } catch (secondError) {
-          console.error('[/api/email/generate] Second JSON parse attempt failed')
-          
-          // Last attempt: extract key fields manually using regex
-          try {
-            const subjectMatch = cleanedResponse.match(/"subject"\s*:\s*"([^"]*(?:\\.[^"]*)*)"/)?.[1]
-            const fromMatch = cleanedResponse.match(/"from"\s*:\s*"([^"]*?)(?:\s*-|")/)?.[1]
-            const htmlMatch = cleanedResponse.match(/"html_body"\s*:\s*"([^"]*(?:\\.[^"]*)*)"/)?.[1]
-            
-            if (subjectMatch && fromMatch && htmlMatch) {
-              parsedResponse = {
-                subject: subjectMatch.replace(/\\"/g, '"'),
-                from: fromMatch.replace(/\\"/g, '"'),
-                html_body: htmlMatch.replace(/\\"/g, '"'),
-                text_body: cleanedResponse.match(/"text_body"\s*:\s*"([^"]*(?:\\.[^"]*)*)"/)?.[1] || '',
-              }
-              console.log('[/api/email/generate] Recovered using regex fallback')
-            } else {
-              throw new Error('Could not extract required fields')
-            }
-          } catch (regexError) {
-            console.error('[/api/email/generate] All parse attempts failed')
-            console.error('[/api/email/generate] Cleaned response preview:', cleanedResponse.substring(0, 500))
-            throw new Error('Invalid JSON in AI response')
-          }
-        }
+      // Extract text version from HTML by removing tags
+      const textBody = htmlResponse
+        .replace(/<[^>]+>/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .substring(0, 500)
+
+      // Build the JSON response for the client
+      parsedResponse = {
+        subject: subject,
+        from: `noreply@${partnerDomain.replace(/^www\./, '')}`,
+        html_body: htmlResponse,
+        text_body: textBody,
       }
 
-      console.log('[/api/email/generate] Successfully parsed email response')
+      console.log('[/api/email/generate] Successfully parsed HTML email response')
       console.log('[/api/email/generate] Response fields:', Object.keys(parsedResponse))
     } catch (parseError) {
       logDomainSearch({

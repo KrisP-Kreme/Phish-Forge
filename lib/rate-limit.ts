@@ -65,3 +65,13 @@ export const emailGenerationRateLimiter = createRateLimiter({
     return `email-generation:${sessionId}`
   },
 })
+
+// Domain analysis: 5 per domain per hour
+export const domainAnalysisRateLimiter = createRateLimiter({
+  maxRequests: 5,
+  windowMs: 60 * 60 * 1000, // 1 hour
+  keyGenerator: (req: any) => {
+    const domain = req.body?.domain || 'unknown'
+    return `domain-analysis:${domain}`
+  },
+})
