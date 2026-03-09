@@ -4,9 +4,13 @@ import { Inter } from 'next/font/google'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: 'Solo Builders Community',
-  description: 'Accelerator platform for solo builders working on side projects',
-    generator: 'v0.app'
+  title: 'PhishForge - Security Awareness Training Platform',
+  description: 'Launch AI-powered phishing simulations to strengthen your organization\'s security awareness and defenses',
+  generator: 'v0.app',
+  icons: {
+    icon: '/phishforgelogot.png',
+    apple: '/phishforgelogot.png',
+  },
 }
 
 export default function RootLayout({

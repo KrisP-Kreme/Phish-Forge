@@ -28,6 +28,7 @@ SEARCH IN:
 - Blog/News sections
 - Legal/Privacy notices
 - Case studies
+- Home Page 
 
 OUTPUT FORMAT (must be exactly this):
 {

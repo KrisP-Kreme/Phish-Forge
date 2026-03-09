@@ -1,5 +1,5 @@
 
-import { Shield } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 
 const navItems = {
@@ -22,9 +22,15 @@ export default function Navigation() {
     <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--background)]/80 dark:bg-[var(--background)]/80 backdrop-blur-sm">
         <div className="max-w-1xl mx-auto px-6 py-4 grid grid-cols-3 items-center">
             <div className="flex items-center gap-2">
-                <Shield className="w-8 h-8" style={{ color: 'var(--primary)' }} />
-                <span className="text-2xl font-bold">
-                PhishForge
+                <Image 
+                    src="/phishforgelogot.png" 
+                    alt="PhishForge Logo"
+                    width={28}
+                    height={28}
+                    className="w-7 h-7 object-contain"
+                />
+                <span className="text-xl font-bold">
+                phishforge.
                 </span>
             </div>
             <nav className="flex justify-center space-x-8">
