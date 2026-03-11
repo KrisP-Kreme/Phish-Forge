@@ -397,22 +397,35 @@ const { exec } = require("child_process");
 
 scrapeDesignTokens(target)
   .then(({ headerFont, bodyFont, colorScheme, logo }) => {
-    console.log("\n═══════════════════════════════════════");
-    console.log("  RESULT SUMMARY");
-    console.log("═══════════════════════════════════════");
-    console.log("  Header font :", headerFont?.family ?? "none");
-    console.log("  Body font   :", bodyFont?.family ?? "none");
-    console.log("  Background  :", colorScheme.background);
-    console.log("  Text        :", colorScheme.text);
-    console.log("  Heading     :", colorScheme.heading);
-    console.log("  Primary     :", colorScheme.primary);
-    console.log("  Secondary   :", colorScheme.secondary);
-    console.log("  Accent      :", colorScheme.accent);
-    console.log("  Palette     :", colorScheme.palette.join(", "));
-    console.log("  Logo        :", logo
+    // Normalize font names for CSS usage
+    const normalizeFontName = (name) => {
+      if (!name || name === 'none') return null;
+      // If it looks like a Typekit/managed font reference, extract the readable name
+      if (name.includes('-w01') || name.includes('-w02')) {
+        // Typekit font - try to extract readable name
+        const readable = name.split('-')[0].replace(/\d+$/, '').trim();
+        return readable || name;
+      }
+      return name;
+    };
+
+    const headerFontNormalized = normalizeFontName(headerFont?.family);
+    const bodyFontNormalized = normalizeFontName(bodyFont?.family);
+
+    // Output clean data for API parsing (no decorative characters)
+    console.log('RESULT_SUMMARY');
+    console.log('Header font:', headerFontNormalized ?? 'none');
+    console.log('Body font:', bodyFontNormalized ?? 'none');
+    console.log('Background:', colorScheme.background);
+    console.log('Text:', colorScheme.text);
+    console.log('Heading:', colorScheme.heading);
+    console.log('Primary:', colorScheme.primary);
+    console.log('Secondary:', colorScheme.secondary);
+    console.log('Accent:', colorScheme.accent);
+    console.log('Palette:', colorScheme.palette.join(', '));
+    console.log('Logo:', logo
       ? `${(logo.buffer.length / 1024).toFixed(1)} KB PNG (transparent)`
-      : "not found");
-    console.log("═══════════════════════════════════════\n");
+      : 'not found');
 
     // ── open logo in browser ──
     if (logo && !process.env.HEADLESS_MODE) {
@@ -443,7 +456,7 @@ scrapeDesignTokens(target)
         if (err) console.log(`  Open manually: ${tmpFile}`);
       });
 
-      console.log("  🌐 Opening logo preview in browser…");
+      console.log('Opening logo preview in browser...');
     }
   })
   .catch((err) => {

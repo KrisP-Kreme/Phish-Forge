@@ -1,44 +1,48 @@
-export const EMAIL_GENERATION_PROMPT = `Client Email Generation Prompt (OSINT‑Informed)
-Role & Objective
-You are a professional business communications assistant.
+export const EMAIL_GENERATION_PROMPT = `Generate a phishing simulation HTML email. Your ONLY output should be complete HTML code from <!DOCTYPE html> to </html>.
 
-Using the provided OSINT analysis and brand design specifications, generate a realistic, professional HTML email that could be legitimately sent by the organization to its clients or prospective clients.
+DESIGN VALUES TO USE:
+You will be given color values, font names, and a logo URL. You MUST use these exact values in your HTML and CSS.
 
-The email should align with the organization's actual services, tone, and business model, as supported by the OSINT evidence. The email should convey a tone of great urgency, urging the user to act/do something now (such as paying an outstanding invoice, sus login was it you?, we're pausing your service etc.). Include a link that the user must click on.
+LOGO INSTRUCTIONS:
+- Embed as: <img src="[logo_url]" style="max-width: 140px; height: auto; display: block; margin: 0;" alt="logo" />
+- Position: in the header, top-center or top-left
+- Sizing: max-width 140px, auto height to maintain aspect ratio
+- DO NOT stretch or squeeze the logo
 
-The purpose of this is to demonstrate how easily a company's branding can be imitated for educational, awareness, or phishing-simulation purposes — not for malicious use.
+FONT INSTRUCTIONS:
+- Header font (headings, subject, titles): Use the provided header_font value
+- Body font (paragraphs, body text): Use the provided body_font value
+- If font is not web-safe, use web fallbacks: Arial, Helvetica, sans-serif OR Georgia, serif
+- Apply with style="font-family: [value], Arial, sans-serif;"
 
-CRITICAL REQUIREMENTS:
-1. Use the EXACT fonts, colors, and palette provided - do NOT substitute
-2. Generate COMPLETE HTML email with inline CSS only
-3. Structure: Header with logo and navigation → Body content with urgency message → CTA button → Footer
-4. Logo: Small, positioned at top left of header (use provided logo API URL)
-5. Background: Use the specified Background color for email container
-6. Text: Use the specified Text color for body paragraphs
-7. Headings/Primary: Use the specified Primary/Heading colors
-8. Button: Use the specified Primary or Accent color
-9. Font-family: Use the exact Header font and Body font specified
-10. Contrast: Ensure all text is readable against the background
-11. Email-safe: All CSS must be inline, no external stylesheets, no media queries (basic compatibility)
-12. Include: <!-- This email is for educational and simulation purposes only. -->
-13. Footer: Company contact info, privacy policy link, unsubscribe placeholder
-14. Do NOT include any emojis
-15. Link all external URLs to the legitimate company domain
+COLOR INSTRUCTIONS:
+- background: Apply to main email container background-color
+- text: Apply to paragraph text, body text color
+- heading: Apply to h1, h2, h3, heading color
+- primary: Use for CTA buttons, important links, accents
+- secondary: Use for subtle backgrounds, borders, dividers
+- accent: Use for secondary buttons or highlights
 
-Output Format:
-Generate ONLY the complete HTML email code. Start with <!DOCTYPE html> and end with </html>.
-Include inline CSS in <style> tag within <head>.
-Make it responsive and email-client compatible.
+EMAIL STRUCTURE:
+1. Header: Logo + navigation links (if applicable)
+2. Hero: Large heading with company name or urgent message
+3. Body: 2-3 paragraphs explaining urgency + what action to take
+4. CTA: Large button with primary color
+5. Footer: Company contact info, links, disclaimer
 
-Organization Context:
-Analyze the OSINT data to understand:
-- What services/products the company offers
-- Who their target customers are
-- What industries they operate in
-- Geographic focus
-- Relevant urgency scenarios for their business model
+REQUIREMENTS:
+- All CSS inline in style attributes or <style> tag
+- Use proper spacing: padding, margins, line-height
+- Make text readable: good contrast between text color and background
+- Professional appearance: match the company's actual brand style
+- Urgent tone: convey importance and need for immediate action
+- Include CTA button: clickable link users must click
+- Include comment: <!-- This email is for educational and simulation purposes only. -->
+- NO external stylesheets, NO @media queries, NO JavaScript
+- NO emojis
+- Make email responsive to different widths (use max-width container)
 
-Craft email subject and body content that is relevant to their actual business, not generic.`
+Output: Complete HTML email only. No JSON, no markdown, no explanations.`
 
 export const EMAIL_GENERATION_MODEL = 'llama-3.3-70b-versatile'
 export const EMAIL_GENERATION_VERSION = 'optimized-v3-compact'

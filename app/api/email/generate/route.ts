@@ -130,38 +130,59 @@ export async function POST(request: NextRequest) {
           if (code === 0) {
             resolve(null)
           } else {
+            console.error('[/api/email/generate] Design script stderr:', stderr)
             reject(new Error(`Script exited with code ${code}: ${stderr}`))
           }
         })
         child.on('error', reject)
       })
 
-      // Parse the output - the script logs summary at the end
+      // Parse the output - the script logs clean summary data
+      console.log('[/api/email/generate] Script stdout length:', stdout.length)
       const lines = stdout.split('\n')
-      const resultLine = lines.find((line: string) => line.includes('Header font') || line.includes('Body font'))
-      if (resultLine) {
-        // Extract fonts from the summary
-        const headerMatch = stdout.match(/Header font\s*:\s*([^\n]+)/)
-        const bodyMatch = stdout.match(/Body font\s*:\s*([^\n]+)/)
-        const backgroundMatch = stdout.match(/Background\s*:\s*([^\n]+)/)
-        const textMatch = stdout.match(/Text\s*:\s*([^\n]+)/)
-        const primaryMatch = stdout.match(/Primary\s*:\s*([^\n]+)/)
-        const secondaryMatch = stdout.match(/Secondary\s*:\s*([^\n]+)/)
-        const accentMatch = stdout.match(/Accent\s*:\s*([^\n]+)/)
+      const resultLineIdx = lines.findIndex((line: string) => line.includes('RESULT_SUMMARY'))
+      
+      if (resultLineIdx >= 0) {
+        console.log('[/api/email/generate] Found RESULT_SUMMARY at line', resultLineIdx)
+        // Extract fonts from the summary using simpler patterns
+        const headerMatch = stdout.match(/^Header font:\s*(.+?)$/m)
+        const bodyMatch = stdout.match(/^Body font:\s*(.+?)$/m)
+        const backgroundMatch = stdout.match(/^Background:\s*(.+?)$/m)
+        const textMatch = stdout.match(/^Text:\s*(.+?)$/m)
+        const headingMatch = stdout.match(/^Heading:\s*(.+?)$/m)
+        const primaryMatch = stdout.match(/^Primary:\s*(.+?)$/m)
+        const secondaryMatch = stdout.match(/^Secondary:\s*(.+?)$/m)
+        const accentMatch = stdout.match(/^Accent:\s*(.+?)$/m)
+        const paletteMatch = stdout.match(/^Palette:\s*(.+?)$/m)
 
+        // Filter out "none" values
         advancedDesign = {
           headerFont: headerMatch ? headerMatch[1].trim() : null,
           bodyFont: bodyMatch ? bodyMatch[1].trim() : null,
           background: backgroundMatch ? backgroundMatch[1].trim() : null,
           text: textMatch ? textMatch[1].trim() : null,
+          heading: headingMatch ? headingMatch[1].trim() : null,
           primary: primaryMatch ? primaryMatch[1].trim() : null,
           secondary: secondaryMatch ? secondaryMatch[1].trim() : null,
           accent: accentMatch ? accentMatch[1].trim() : null,
+          palette: paletteMatch ? paletteMatch[1].trim() : null,
         }
-        console.log('[/api/email/generate] Advanced design data:', advancedDesign)
+        
+        // Remove "none" values and only keep actual values
+        Object.keys(advancedDesign).forEach(key => {
+          if (advancedDesign[key] === 'none' || advancedDesign[key] === '') {
+            advancedDesign[key] = null
+          }
+        })
+        
+        console.log('[/api/email/generate] Advanced design data extracted:', advancedDesign)
+      } else {
+        console.warn('[/api/email/generate] RESULT_SUMMARY not found in script output')
+        console.log('[/api/email/generate] Script stdout length:', stdout.length, 'first 500 chars:', stdout.substring(0, 500))
       }
     } catch (designError) {
       console.warn('[/api/email/generate] Advanced design scraping failed, using basic data:', designError)
+      console.error('[/api/email/generate] Design error details:', designError)
     }
 
     // Run OSINT analysis on the partner domain
@@ -217,19 +238,46 @@ Provide a comprehensive OSINT analysis following the schema exactly.`
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ')
 
-    // Format design data clearly for the AI
-    const designSection = `USE THIS FOR FONT AND COLOUR SCHEME:
-Header font : ${advancedDesign?.headerFont || scrapedData.fonts?.primary || 'Arial, sans-serif'}
-Body font : ${advancedDesign?.bodyFont || scrapedData.fonts?.primary || 'Arial, sans-serif'}
-Background : ${advancedDesign?.background || scrapedData.colors?.primary || '#ffffff'}
-Text : ${advancedDesign?.text || scrapedData.colors?.secondary || '#333333'}
-Heading : ${advancedDesign?.heading || '#000000'}
-Primary : ${advancedDesign?.primary || palette?.dominant || scrapedData.colors?.primary || '#0066cc'}
-Secondary : ${advancedDesign?.secondary || palette?.secondary || scrapedData.colors?.secondary || '#f0f5fa'}
-Accent : ${advancedDesign?.accent || palette?.accent || scrapedData.colors?.primary || '#0066cc'}
-Palette : ${advancedDesign?.palette || `${advancedDesign?.primary || '#0066cc'}, ${advancedDesign?.secondary || '#f0f5fa'}`}
+    // Format design data clearly as explicit values the AI must use
+    const designData = {
+      headerFont: advancedDesign?.headerFont || scrapedData.fonts?.primary || 'Arial, sans-serif',
+      bodyFont: advancedDesign?.bodyFont || scrapedData.fonts?.primary || 'Arial, sans-serif',
+      background: advancedDesign?.background || scrapedData.colors?.primary || '#ffffff',
+      text: advancedDesign?.text || scrapedData.colors?.secondary || '#333333',
+      heading: advancedDesign?.heading || '#000000',
+      primary: advancedDesign?.primary || palette?.dominant || scrapedData.colors?.primary || '#0066cc',
+      secondary: advancedDesign?.secondary || palette?.secondary || scrapedData.colors?.secondary || '#f0f5fa',
+      accent: advancedDesign?.accent || palette?.accent || scrapedData.colors?.primary || '#0066cc',
+      palette: advancedDesign?.palette || `${advancedDesign?.primary || '#0066cc'}, ${advancedDesign?.secondary || '#f0f5fa'}`,
+      logoUrl: `https://img.logo.dev/${partnerDomain}?token=pk_LMYBshZrSNWjexfaZvNkAQ`
+    }
 
-Logo URL: https://img.logo.dev/${partnerDomain}?token=pk_LMYBshZrSNWjexfaZvNkAQ`
+    const designSection = `DESIGN SPECIFICATIONS (USE THESE EXACT VALUES):
+background: ${designData.background}
+text: ${designData.text}
+heading: ${designData.heading}
+primary: ${designData.primary}
+secondary: ${designData.secondary}
+accent: ${designData.accent}
+header_font: ${designData.headerFont}
+body_font: ${designData.bodyFont}
+logo_url: ${designData.logoUrl}
+
+Replace [BACKGROUND] with: ${designData.background}
+Replace [TEXT] with: ${designData.text}
+Replace [HEADING] with: ${designData.heading}
+Replace [PRIMARY] with: ${designData.primary}
+Replace [SECONDARY] with: ${designData.secondary}
+Replace [ACCENT] with: ${designData.accent}
+Replace [HEADER_FONT] with: ${designData.headerFont}
+Replace [BODY_FONT] with: ${designData.bodyFont}
+Replace logo URL in <img src="..."> with: ${designData.logoUrl}`
+
+    console.log('[/api/email/generate] Design data being sent to AI:')
+    console.log('[/api/email/generate] designData:', JSON.stringify(designData, null, 2))
+    console.log('[/api/email/generate] advancedDesign source:', advancedDesign)
+    console.log('[/api/email/generate] scrapedData source:', { fonts: scrapedData.fonts, colors: scrapedData.colors })
+    console.log('[/api/email/generate] palette source:', palette)
 
     // Build the user message with structured design data and OSINT (matching successful format)
     // Create a well-formatted organization profile from OSINT data
@@ -262,11 +310,26 @@ ${osintAnalysis.key_public_entities?.map((entity: any) => `  - ${entity.name}: $
 organization_name: ${partner.name}
 organization_type: Technology/Service Provider`;
 
-    const userMessage = `${designSection}
+    const userMessage = `You will now generate a phishing simulation email in HTML format.
 
+${designSection}
+
+ORGANIZATION TO IMPERSONATE:
 ${organizationSection}
 
-Generate a professional phishing simulation email now. Use ONLY the complete HTML code starting with <!DOCTYPE html> and ending with </html>. Do NOT output JSON or any wrapper - only the raw HTML.`
+INSTRUCTIONS:
+1. Start with <!DOCTYPE html> and end with </html>
+2. Use ONLY inline CSS - no external stylesheets
+3. Apply the design specifications EXACTLY as listed above
+4. Make the email about the organization's business model and services
+5. Make it urgent - requiring action NOW
+6. Include a single CTA button using the Primary color
+7. Include organization logo from the logo URL
+8. Make text readable with proper contrast
+9. Include footer with contact links from the organization's website
+10. Include comment: <!-- This email is for educational and simulation purposes only. -->
+
+OUTPUT ONLY THE HTML CODE - nothing else.`
 
     console.log('[/api/email/generate] Generating email for:', {
       target: resolvedDomain,
