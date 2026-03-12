@@ -218,7 +218,7 @@ export default function DomainForm({
           <motion.h1
             className="font-bold mb-1"
             style={{
-              fontSize: 'clamp(16px, 4vw, 28px)',
+              fontSize: 'clamp(32px, 8vw, 72px)',
               color: '#00ff00',
               textShadow: '0 0 2px rgba(0, 255, 0, 0.5)',
               margin: 0,
@@ -233,7 +233,7 @@ export default function DomainForm({
           <motion.p
             className="text-[var(--muted-foreground)]"
             style={{
-              fontSize: 'clamp(11px, 2vw, 14px)',
+              fontSize: 'clamp(18px, 3vw, 24px)',
               color: '#00ff00',
               textShadow: '0 0 1px rgba(0, 255, 0, 0.4)',
               margin: '-4px 0 0 0',
@@ -271,7 +271,7 @@ export default function DomainForm({
                 paddingRight: 'clamp(10px, 2%, 16px)',
                 paddingTop: 'clamp(8px, 1.5%, 12px)',
                 paddingBottom: 'clamp(8px, 1.5%, 12px)',
-                fontSize: 'clamp(10px, 1.8vw, 14px)',
+                fontSize: 'clamp(16px, 3.5vw, 32px)',
                 opacity: isThinking ? 0.5 : 1,
                 cursor: isThinking ? 'not-allowed' : 'auto',
               }}
@@ -286,7 +286,7 @@ export default function DomainForm({
                 style={{
                   left: 'clamp(10px, 2%, 16px)',
                   whiteSpace: 'pre',
-                  fontSize: 'clamp(10px, 1.8vw, 14px)',
+                  fontSize: 'clamp(16px, 3.5vw, 32px)',
                   color: '#00aa00',
                 }}
               >
@@ -316,7 +316,7 @@ export default function DomainForm({
               paddingRight: 'clamp(12px, 2.5%, 20px)',
               paddingTop: 'clamp(8px, 1.5%, 12px)',
               paddingBottom: 'clamp(8px, 1.5%, 12px)',
-              fontSize: 'clamp(10px, 1.8vw, 14px)',
+              fontSize: 'clamp(14px, 3vw, 28px)',
               fontWeight: 'bold',
               borderWidth: '2px',
               textShadow: '0 0 1px rgba(0, 255, 0, 0.5)',

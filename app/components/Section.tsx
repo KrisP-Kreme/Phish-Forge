@@ -63,7 +63,7 @@ export default function Section({ id, title, subtitle, content, isActive, showBu
             {content && (
               typeof content === 'string' || typeof content === 'number' ? (
                 <motion.p
-                  className="text-lg md:text-xl lg:text-2xl max-w-2xl mt-6 text-neutral-400"
+                  className="text-lg md:text-xl lg:text-2xl max-w-2xl mt-6 text-muted-foreground"
                   initial={{ opacity: 0, y: 50 }}
                   animate={isActive ? { opacity: 1, y: 0 } : {}}
                   transition={{ duration: 0.5, delay: 0.2 }}

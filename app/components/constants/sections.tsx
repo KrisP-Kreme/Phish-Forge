@@ -208,15 +208,15 @@ export const sections = [
                   className="w-16 h-16 md:w-20 md:h-20 object-contain"
                 />
               </motion.div>
-              <h1 
-                className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight" 
+              <h1
+                className="text-4xl md:text-6xl lg:text-[5rem] xl:text-[6rem] font-bold leading-[1.1] tracking-tight"
                 style={{ color: 'hsl(var(--foreground))' }}
               >
                 phishforge.
               </h1>
             </motion.div>
             <motion.p 
-              className="text-base md:text-lg text-muted-foreground leading-relaxed"
+              className="text-lg md:text-xl lg:text-2xl text-muted-foreground leading-relaxed"
               initial={{ opacity: 0, y: 50 }}
               animate={isActive ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
               transition={{ duration: 0.5, delay: 0.2 }}
@@ -270,63 +270,107 @@ export const sections = [
       </div>
     )
   },
-  { 
-    id: 'features', 
-    title: '', 
+  {
+    id: 'features',
+    title: '',
     content: (isActive: boolean) => (
       <div className="w-full max-w-5xl mx-auto px-6">
-        <motion.div 
-          className="space-y-12"
-          initial={{ opacity: 0, y: 30 }}
-          animate={isActive ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-          transition={{ duration: 0.6 }}
-        >
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h2 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-              Our Mission
-            </h2>
-          </div>
+        <div className="flex flex-col gap-6">
 
-          <motion.div
-            className="space-y-6 text-center max-w-3xl mx-auto"
-            initial={{ opacity: 0, y: 50 }}
-            animate={isActive ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
+          {/* Heading */}
+          <motion.h2
+            className="text-4xl md:text-6xl lg:text-[5rem] font-bold leading-[1.1] tracking-tight text-center"
+            style={{ color: 'hsl(var(--foreground))' }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={isActive ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+            transition={{ duration: 0.5 }}
           >
-            <p className="text-base md:text-lg text-muted-foreground leading-relaxed">
-              Over <span className="font-bold text-foreground">60% of small and medium-sized businesses</span> fall 
-              victim to phishing attacks annually, costing billions in damages.
-            </p>
-            
-            <p className="text-base md:text-lg text-muted-foreground leading-relaxed">
-              Traditional security awareness training fails because it lacks the contextual awareness 
-              that real attackers exploit.
-            </p>
-          </motion.div>
-          
+            Our Mission
+          </motion.h2>
+
+          {/* Stat clippings — same max-width as notes block for alignment */}
           <motion.div
-            className="space-y-6 text-center max-w-3xl mx-auto"
-            initial={{ opacity: 0, y: 50 }}
-            animate={isActive ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
+            className="grid grid-cols-2 gap-6 max-w-3xl mx-auto w-full"
+            initial={{ opacity: 0, y: 30 }}
+            animate={isActive ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+            transition={{ duration: 0.55, delay: 0.2 }}
           >
-            <p className="text-base md:text-lg text-muted-foreground leading-relaxed">
-              Real-world phishing doesn't use generic templates. Attackers research your business 
-              partners, understand your workflows, and craft emails that mirror legitimate communications.
-            </p>
-            
-            <motion.p 
-              className="text-base md:text-lg leading-relaxed font-semibold text-foreground pt-2" 
-              initial={{ opacity: 0, y: 20 }}
-              animate={isActive ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-              transition={{ duration: 0.6, delay: 0.7 }}
-            >
-              PhishForge changes that. We create contextually-aware simulations that truly test 
-              your team's defenses—preparing them for the attacks they'll actually face.
-            </motion.p>
+
+            {/* Clipping 1 */}
+            <div className="relative" style={{ transform: 'rotate(-1.5deg)' }}>
+              <div
+                className="absolute -top-3 left-1/2 -translate-x-1/2 w-14 h-5 rounded-sm z-10"
+                style={{ backgroundColor: 'rgba(180, 158, 110, 0.35)', border: '1px solid hsl(var(--border))' }}
+              />
+              <div className="bg-card border border-border p-5 shadow-md" style={{ borderColor: 'hsl(var(--border))' }}>
+                <p className="text-5xl md:text-6xl font-black leading-none mb-2" style={{ color: 'hsl(var(--primary))' }}>
+                  60%
+                </p>
+                <div className="h-px mb-2" style={{ backgroundColor: 'hsl(var(--border))' }} />
+                <p className="text-sm md:text-base leading-relaxed" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                  of SMBs fall victim to phishing attacks annually
+                </p>
+              </div>
+            </div>
+
+            {/* Clipping 2 */}
+            <div className="relative" style={{ transform: 'rotate(1deg)' }}>
+              <div
+                className="absolute -top-3 left-1/2 -translate-x-1/2 w-14 h-5 rounded-sm z-10"
+                style={{ backgroundColor: 'rgba(180, 158, 110, 0.35)', border: '1px solid hsl(var(--border))' }}
+              />
+              <div className="bg-card border border-border p-5 shadow-md" style={{ borderColor: 'hsl(var(--border))' }}>
+                <p className="text-5xl md:text-6xl font-black leading-none mb-2" style={{ color: 'hsl(var(--primary))' }}>
+                  $4.9B
+                </p>
+                <div className="h-px mb-2" style={{ backgroundColor: 'hsl(var(--border))' }} />
+                <p className="text-sm md:text-base leading-relaxed" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                  in annual losses from business email compromise
+                </p>
+              </div>
+            </div>
+
           </motion.div>
-        </motion.div>
+
+          {/* Ruled paper notes block */}
+          <motion.div
+            className="relative border border-border shadow-sm overflow-hidden max-w-3xl mx-auto w-full"
+            style={{ backgroundColor: 'hsl(var(--card))' }}
+            initial={{ opacity: 0, y: 30 }}
+            animate={isActive ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+            transition={{ duration: 0.55, delay: 0.45 }}
+          >
+            {/* Ruled paper lines */}
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background: 'repeating-linear-gradient(to bottom, transparent, transparent 27px, hsl(var(--border)) 27px, hsl(var(--border)) 28px)',
+              }}
+            />
+            {/* Red margin line */}
+            <div
+              className="absolute top-0 bottom-0"
+              style={{ left: '44px', width: '1px', backgroundColor: 'rgba(196, 69, 54, 0.25)' }}
+            />
+            {/* Hole punches */}
+            <div className="absolute top-5 left-3.5 w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }} />
+            <div className="absolute top-16 left-3.5 w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }} />
+            <div className="absolute bottom-5 left-3.5 w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }} />
+
+            <div className="relative pl-14 pr-6 py-4 space-y-3" style={{ lineHeight: '28px' }}>
+              <p className="text-base md:text-lg" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                Traditional security awareness training fails because it lacks the contextual awareness that real attackers exploit.
+              </p>
+              <p className="text-base md:text-lg" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                Real-world phishing doesn't use generic templates. Attackers research your business partners, understand your workflows, and craft emails that mirror legitimate communications.
+              </p>
+              <p className="text-base md:text-lg font-semibold" style={{ color: 'hsl(var(--foreground))' }}>
+                PhishForge changes that — contextually-aware simulations that prepare your team for the attacks they'll actually face.
+              </p>
+            </div>
+          </motion.div>
+
+        </div>
       </div>
     )
   },
@@ -389,7 +433,7 @@ export const sections = [
               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#8b2e23' }}></div>
             </div>
             
-            <div className="bg-white p-4 pb-12 shadow-xl border-2" 
+            <div className="bg-card p-4 pb-12 shadow-xl border-2"
                  style={{ borderColor: 'hsl(var(--border))' }}>
               {/* Polaroid Photo Area */}
               <div className="w-full aspect-[4/3] overflow-hidden mb-4" 
@@ -449,7 +493,7 @@ export const sections = [
               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#8b2e23' }}></div>
             </div>
             
-            <div className="bg-white p-4 pb-12 shadow-xl border-2" 
+            <div className="bg-card p-4 pb-12 shadow-xl border-2"
                  style={{ borderColor: 'hsl(var(--border))' }}>
               {/* Polaroid Photo Area */}
               <div className="w-full aspect-[4/3] overflow-hidden mb-4" 
@@ -501,11 +545,11 @@ export const sections = [
       </div>
     )
   },
-  { 
-    id: 'join', 
-    title: 'Get Started', 
-    content: 'Ready to take your side project to the next level? Join our community today and start building your future.',
+  {
+    id: 'join',
+    title: 'Get Started',
+    content: 'Ready to test your organisation\'s defences? PhishForge generates contextually-aware phishing simulations so your team can recognise — and stop — the attacks they\'ll actually face.',
     showButton: true,
-    buttonText: 'Join Now'
+    buttonText: 'Start Your Campaign'
   },
 ]

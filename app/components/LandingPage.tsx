@@ -56,8 +56,17 @@ export default function LandingPage() {
 
   return (
     <Layout>
+      {/* Scroll Progress Bar */}
+      <motion.div
+        className="fixed top-0 left-0 right-0 h-[3px] origin-left z-[60]"
+        style={{
+          scaleX,
+          backgroundColor: 'hsl(var(--primary))'
+        }}
+      />
+
       {/* Animated Navigation Bar */}
-      <AnimatedNavFramer 
+      <AnimatedNavFramer
         navItems={navItems}
         activeSection={activeSection}
         onNavClick={handleNavClick}
