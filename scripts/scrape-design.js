@@ -251,18 +251,31 @@ if (!target) {
   process.exit(1)
 }
 
+function outputDefaults() {
+  console.log('RESULT_SUMMARY')
+  console.log('Header font: none')
+  console.log('Body font: none')
+  console.log('Background: #ffffff')
+  console.log('Text: #333333')
+  console.log('Heading: #000000')
+  console.log('Primary: #0066cc')
+  console.log('Secondary: #f0f5fa')
+  console.log('Accent: #0066cc')
+  console.log('Palette: #0066cc, #f0f5fa')
+  console.log('Logo: (resolved via API)')
+}
+
+const normFont = (name) => {
+  if (!name) return null
+  if (/-w0[12]/i.test(name)) {
+    const clean = name.split('-')[0].replace(/\d+$/, '').trim()
+    return clean || name
+  }
+  return name
+}
+
 scrapeDesignTokens(target)
   .then(({ headerFamily, bodyFamily, colorScheme }) => {
-    const normFont = (name) => {
-      if (!name) return null
-      // Strip Typekit internal suffixes like "-w01-regular"
-      if (/-w0[12]/i.test(name)) {
-        const clean = name.split('-')[0].replace(/\d+$/, '').trim()
-        return clean || name
-      }
-      return name
-    }
-
     console.log('RESULT_SUMMARY')
     console.log('Header font:', normFont(headerFamily) ?? 'none')
     console.log('Body font:', normFont(bodyFamily) ?? 'none')
@@ -276,6 +289,10 @@ scrapeDesignTokens(target)
     console.log('Logo: (resolved via API)')
   })
   .catch((err) => {
-    console.error('Fatal:', err.message || String(err))
-    process.exit(1)
+    // Non-critical failure (403, timeout, DNS error etc.) — output defaults
+    // so the parent process can continue with fallback design data.
+    console.warn('Design scrape failed (non-fatal):', err.message || String(err))
+    outputDefaults()
+    // Exit 0 so the parent Promise resolves rather than rejects
+    process.exit(0)
   })

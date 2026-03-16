@@ -27,7 +27,9 @@ export const DiscoveredPartnerSchema = z.object({
   ]),
   evidence: z.string().min(1),
   confidence: z.number().min(0.65).max(1),
-  url: z.string().optional().or(z.literal('')),
+  // Only set if you know the partner's own website (e.g. "mimecast.com").
+  // NEVER set this to the domain being analysed.
+  url: z.string().optional().or(z.literal('')).transform(v => (v === '' ? undefined : v)),
 })
 
 // Wrapper object required for json_object response_format mode.

@@ -56,30 +56,49 @@ export async function POST(request: NextRequest) {
 
     // Extract and resolve partner domain via search
     let partnerDomain: string
-    
+
+    // Normalise the target so we can compare against it
+    const normalisedTarget = domain.replace(/^www\./, '').toLowerCase()
+
+    // Helper: returns true if a candidate hostname resolves to the target domain
+    const isTargetDomain = (candidate: string) => {
+      const normalised = candidate.replace(/^www\./, '').toLowerCase()
+      return normalised === normalisedTarget || normalised.endsWith('.' + normalisedTarget)
+    }
+
+    // Try the provided URL first, but only if it doesn't resolve back to the target
+    let urlResolved = false
     if (partner.url) {
-      // Use provided URL - most reliable
-      const parsedUrl = new URL(partner.url)
-      partnerDomain = parsedUrl.hostname || partner.url
-      console.log('[/api/email/generate] Using provided partner URL:', partnerDomain)
-    } else {
-      // Search for partner domain by name
-      console.log('[/api/email/generate] Searching for partner domain:', partner.name)
-      const partnerSearch = await searchDomain(partner.name)
-      
-      if (partnerSearch.found && partnerSearch.domain) {
-        partnerDomain = partnerSearch.domain
-        console.log('[/api/email/generate] ✓ Partner domain resolved to:', partnerDomain)
-      } else {
-        // Fallback: use partner name as best guess
-        console.warn('[/api/email/generate] ⚠ Partner domain not found, using name as fallback:', partner.name)
-        partnerDomain = partner.name.toLowerCase().replace(/\s+/g, '')
+      try {
+        const parsedUrl = new URL(
+          partner.url.startsWith('http') ? partner.url : `https://${partner.url}`
+        )
+        const candidate = parsedUrl.hostname
+        if (isTargetDomain(candidate)) {
+          console.warn('[/api/email/generate] Partner URL resolves to target domain — ignoring and searching by name:', partner.name)
+        } else {
+          partnerDomain = candidate
+          urlResolved = true
+          console.log('[/api/email/generate] Using provided partner URL:', partnerDomain)
+        }
+      } catch {
+        console.warn('[/api/email/generate] Could not parse partner.url, falling back to name search:', partner.url)
       }
     }
 
-    // Validate that partnerDomain is not accidentally the target domain
-    if (partnerDomain.includes(domain.split('.')[0])) {
-      console.error('[/api/email/generate] ⚠ WARNING: Partner domain appears to be the target domain! This may indicate incorrect domain resolution.')
+    if (!urlResolved) {
+      // Search for the partner's domain by name
+      console.log('[/api/email/generate] Searching for partner domain by name:', partner.name)
+      const partnerSearch = await searchDomain(partner.name)
+
+      if (partnerSearch.found && partnerSearch.domain && !isTargetDomain(partnerSearch.domain)) {
+        partnerDomain = partnerSearch.domain
+        console.log('[/api/email/generate] ✓ Partner domain resolved to:', partnerDomain)
+      } else {
+        // Last resort: derive a slug from the partner name
+        console.warn('[/api/email/generate] ⚠ Could not resolve partner domain, using name slug:', partner.name)
+        partnerDomain = partner.name.trim().toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9.-]/g, '')
+      }
     }
 
     // Resolve target domain via search
@@ -345,7 +364,7 @@ OUTPUT ONLY THE HTML CODE - nothing else.`
         EMAIL_GENERATION_MODEL,
         EMAIL_GENERATION_PROMPT,
         userMessage,
-        1, // max 1 retry for speed
+        2, // up to 2 retries — rate-limit backoff is handled in callGroqWithRetry
         estimatedOutputChars
       )
     } catch (groqError) {

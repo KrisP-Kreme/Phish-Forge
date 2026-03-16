@@ -46,4 +46,5 @@ CONFIDENCE SCORING:
 
 Only include items with confidence >= 0.70.
 If nothing qualifies, return {"partners": []}.
+If you know a partner's own website URL (e.g. "mimecast.com"), set the url field. NEVER use the analysed company's domain as a partner URL.
 Return only the JSON object, no other text.`

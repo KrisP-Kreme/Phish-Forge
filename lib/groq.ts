@@ -83,12 +83,23 @@ export async function callGroqWithRetry(
       lastError = error instanceof Error ? error : new Error(String(error))
       console.error(`[Groq] Attempt ${attempt + 1} failed:`, lastError.message)
 
+      // Hard failures — no point retrying
       if (lastError.message.includes('schema') || lastError.message.includes('validation')) {
         throw lastError
       }
 
       if (attempt < maxRetries) {
-        const backoffMs = Math.min(1000 * Math.pow(2, attempt), 10000)
+        // Rate-limit (429): Groq free tier needs ~20s before quota resets
+        const isRateLimit =
+          lastError.message.includes('rate_limit') ||
+          lastError.message.includes('429') ||
+          lastError.message.includes('Too Many Requests')
+
+        const backoffMs = isRateLimit
+          ? 20000 + attempt * 5000   // 20s, 25s … for 429
+          : Math.min(1000 * Math.pow(2, attempt), 10000)  // 1s, 2s … for other errors
+
+        console.log(`[Groq] Waiting ${backoffMs}ms before retry${isRateLimit ? ' (rate limit)' : ''}...`)
         await new Promise((resolve) => setTimeout(resolve, backoffMs))
       }
     }
