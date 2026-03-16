@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { callGroqWithRetry } from '@/lib/groq'
+import { callGroqWithRetry, cleanJsonResponse } from '@/lib/groq'
 import { domainAnalysisRateLimiter } from '@/lib/rate-limit'
 import { logDomainSearch } from '@/lib/logging'
 import { OSINTDomainAnalysisResponseSchema } from '@/prompts/osint-domain-analysis/osint-domain-analysis.schema'
@@ -106,12 +106,7 @@ Provide a comprehensive OSINT analysis following the schema exactly.`
     // Parse JSON response
     let parsedResponse: any
     try {
-      const cleanedResponse = groqResponse
-        .replace(/^```json\n?/, '')
-        .replace(/\n?```$/, '')
-        .trim()
-
-      parsedResponse = JSON.parse(cleanedResponse)
+      parsedResponse = JSON.parse(cleanJsonResponse(groqResponse))
     } catch (parseError) {
       logDomainSearch({
         timestamp: new Date().toISOString(),

@@ -1,489 +1,269 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { callGroqWithRetry } from '@/lib/groq'
+import { callGroqWithRetry, cleanJsonResponse } from '@/lib/groq'
 import { partnerDiscoveryRateLimiter } from '@/lib/rate-limit'
 import { logDomainSearch } from '@/lib/logging'
-import { PartnerDiscoveryResponseSchema } from '@/prompts/partner-discovery/partner-discovery.v1.schema'
-import {
-  PARTNER_DISCOVERY_PROMPT,
-} from '@/prompts/partner-discovery/partner-discovery.v1.prompt'
-import { AssociatedBusinessesResponseSchema } from '@/prompts/associated-businesses/associated-businesses.schema'
-import {
-  ASSOCIATED_BUSINESSES_PROMPT,
-} from '@/prompts/associated-businesses/associated-businesses.prompt'
-import { scrapeWebsiteContent } from '@/lib/scraper'
-import type { DNSDataSection, PartnerCardViewProps, DNSResult } from '@/app/types'
+import { DiscoveryResponseSchema, type DiscoveredPartner } from '@/prompts/partner-discovery/discovery.schema'
+import { TECH_TOOLS_PROMPT } from '@/prompts/partner-discovery/tech-tools.prompt'
+import { BUSINESS_RELATIONSHIPS_PROMPT } from '@/prompts/partner-discovery/business-relationships.prompt'
+import { GOODS_EQUIPMENT_PROMPT } from '@/prompts/partner-discovery/goods-equipment.prompt'
+import { INDUSTRY_ASSOCIATIONS_PROMPT } from '@/prompts/partner-discovery/industry-associations.prompt'
+import { COMMUNITY_LOCAL_PROMPT } from '@/prompts/partner-discovery/community-local.prompt'
+import { MEDIA_PR_PROMPT } from '@/prompts/partner-discovery/media-pr.prompt'
+import { FINANCE_PROFESSIONAL_PROMPT } from '@/prompts/partner-discovery/finance-professional.prompt'
+import { PROGRAMS_TRAINING_PROMPT } from '@/prompts/partner-discovery/programs-training.prompt'
+import { SOFTWARE_INTEGRATIONS_PROMPT } from '@/prompts/partner-discovery/software-integrations.prompt'
+import { TECHNOLOGY_PARTNERS_PROMPT } from '@/prompts/partner-discovery/technology-partners.prompt'
+import { LOGISTICS_SUPPLIERS_PROMPT } from '@/prompts/partner-discovery/logistics-suppliers.prompt'
+import { STAFF_TRAINING_PROMPT } from '@/prompts/partner-discovery/staff-training.prompt'
+import { FACILITY_SERVICES_PROMPT } from '@/prompts/partner-discovery/facility-services.prompt'
+import { PAYMENT_FINANCING_PROMPT } from '@/prompts/partner-discovery/payment-financing.prompt'
+import { crawlWebsite, type FingerprintedService } from '@/lib/crawler'
+import { structureDNSData } from '@/lib/dns-utils'
+import { isGenericService, CONFIDENCE_THRESHOLDS } from '@/lib/partner-constants'
+import type { DNSDataSection, PartnerCardViewProps } from '@/app/types'
 import { z } from 'zod'
 
-// Request validation
+const MODEL = 'llama-3.3-70b-versatile'
+
 const RequestSchema = z.object({
   domain: z.string().min(1),
   dnsData: z.record(z.any()).optional(),
 })
 
-function structureDNSData(dnsResult: DNSResult | undefined): DNSDataSection {
-  return {
-    aRecords: Array.isArray(dnsResult?.A) ? dnsResult.A : [],
-    mxRecords: Array.isArray(dnsResult?.MX)
-      ? dnsResult.MX.map((mx: any) => ({
-          priority: mx.priority || 0,
-          value: typeof mx === 'string' ? mx : mx.value || '',
-        }))
-      : [],
-    nsRecords: Array.isArray(dnsResult?.NS) ? dnsResult.NS : [],
-    txtRecords: Array.isArray(dnsResult?.TXT) ? dnsResult.TXT : [],
-    timestamp: new Date().toISOString(),
-  }
+function normalizeDomain(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^https?:\/\//i, '')
+    .replace(/^www\./i, '')
+    .replace(/\/.*$/, '')
+    .replace(/\/$/, '')
+    .toLowerCase()
 }
 
 function formatDNSDataForAnalysis(dns: DNSDataSection): string {
-  let formatted = '';
+  let formatted = ''
 
-  if (dns.aRecords && dns.aRecords.length > 0) {
-    formatted += `\n📍 A RECORDS (IPv4 Hosting Providers):\n`;
-    dns.aRecords.forEach(ip => {
-      formatted += `  • ${ip}\n`;
-    });
+  if (dns.aRecords?.length > 0) {
+    formatted += `\nA RECORDS (Hosting):\n`
+    dns.aRecords.forEach((ip) => { formatted += `  • ${ip}\n` })
   }
-
-  if (dns.mxRecords && dns.mxRecords.length > 0) {
-    formatted += `\n📧 MX RECORDS (Email Infrastructure):\n`;
-    dns.mxRecords.forEach(mx => {
-      formatted += `  • Priority ${mx.priority}: ${mx.value} (Email service provider)\n`;
-    });
+  if (dns.mxRecords?.length > 0) {
+    formatted += `\nMX RECORDS (Email):\n`
+    dns.mxRecords.forEach((mx) => { formatted += `  • Priority ${mx.priority}: ${mx.value}\n` })
   }
-
-  if (dns.nsRecords && dns.nsRecords.length > 0) {
-    formatted += `\n🏢 NS RECORDS (Domain Name Servers / Registrar Infrastructure):\n`;
-    dns.nsRecords.forEach(ns => {
-      formatted += `  • ${ns}\n`;
-    });
+  if (dns.nsRecords?.length > 0) {
+    formatted += `\nNS RECORDS (Name Servers):\n`
+    dns.nsRecords.forEach((ns) => { formatted += `  • ${ns}\n` })
   }
-
-  if (dns.txtRecords && dns.txtRecords.length > 0) {
-    formatted += `\n📝 TXT RECORDS (Email Security & Domain Verification):\n`;
-    dns.txtRecords.slice(0, 5).forEach(txt => {
-      const preview = txt.substring(0, 80) + (txt.length > 80 ? '...' : '');
-      formatted += `  • ${preview}\n`;
-    });
+  if (dns.txtRecords?.length > 0) {
+    formatted += `\nTXT RECORDS (Email Security):\n`
+    dns.txtRecords.slice(0, 5).forEach((txt) => {
+      formatted += `  • ${txt.substring(0, 100)}${txt.length > 100 ? '...' : ''}\n`
+    })
   }
-
-  return formatted;
+  return formatted
 }
 
-// Generic services that should NEVER appear in associated businesses results
-const GENERIC_SERVICE_BLOCKLIST = new Set([
-  // Social Media
-  'facebook', 'instagram', 'linkedin', 'twitter', 'youtube', 'tiktok',
-  'pinterest', 'whatsapp', 'snapchat', 'reddit',
-  
-  // Google Services
-  'google', 'google analytics', 'google maps', 'google ads', 'google fonts',
-  'google tag manager', 'gmail', 'recaptcha', 'google workspace',
-  
-  // Generic Tech/CMS
-  'wordpress', 'wix', 'squarespace', 'godaddy', 'cloudflare', 'aws',
-  'amazon web services', 'azure', 'microsoft azure', 'digitalocean',
-  
-  // Marketing Tools
-  'mailchimp', 'constant contact', 'sendinblue', 'mailgun',
-  
-  // Analytics
-  'hotjar', 'mixpanel', 'heap', 'segment', 'amplitude',
-  
-  // Payment/Cards
-  'visa', 'mastercard', 'amex', 'american express', 'paypal',
-  
-  // Cookie/Privacy
-  'onetrust', 'cookiebot', 'osano',
-  
-  // Hosting
-  'bluehost', 'hostgator', 'siteground', 'dreamhost',
-  
-  // CDNs
-  'fastly', 'akamai', 'cloudfront',
-]);
+/**
+ * Run a single focused discovery Groq call and return validated partners.
+ * Fails silently (returns []) so one bad call never kills the whole request.
+ */
+async function runDiscoveryCall(
+  label: string,
+  systemPrompt: string,
+  content: string,
+  domain: string,
+  skipNames: string[],
+): Promise<DiscoveredPartner[]> {
+  const skipBlock = skipNames.length > 0
+    ? `\nAlready detected elsewhere (skip these — do not repeat them): ${skipNames.join(', ')}\n`
+    : ''
 
-function isGenericService(name: string): boolean {
-  const normalized = name.toLowerCase().trim();
-  
-  // Check exact match
-  if (GENERIC_SERVICE_BLOCKLIST.has(normalized)) {
-    return true;
+  const userMessage =
+    `Domain: ${domain}${skipBlock}\n` +
+    `Website content to analyze:\n${content}\n\n` +
+    `Return a JSON object with a "partners" array as instructed.`
+
+  try {
+    const raw = await callGroqWithRetry(
+      MODEL,
+      systemPrompt,
+      userMessage,
+      1,   // 1 retry — keep latency low
+      700, // estimated output chars
+      { temperature: 0.1, max_tokens: 600, response_format: 'json_object' },
+    )
+
+    const parsed = JSON.parse(cleanJsonResponse(raw))
+    const validated = DiscoveryResponseSchema.parse(parsed)
+
+    const filtered = validated.partners.filter(
+      (p) => p.confidence >= CONFIDENCE_THRESHOLDS.FOOTER_PRIVACY && !isGenericService(p.name),
+    )
+
+    console.log(`[Discovery:${label}] ${filtered.length} partners after filtering (${validated.partners.length} raw)`)
+    filtered.forEach((p) => console.log(`  ✓ ${p.name} (${p.type}) confidence=${p.confidence}`))
+
+    return filtered
+  } catch (err) {
+    console.error(`[Discovery:${label}] Call failed:`, err instanceof Error ? err.message : err)
+    return []
   }
-  
-  // Check if it contains any blocklisted term
-  for (const blocked of GENERIC_SERVICE_BLOCKLIST) {
-    if (normalized.includes(blocked)) {
-      return true;
-    }
-  }
-  
-  return false;
 }
 
-function filterAssociatedBusinesses(businesses: any[]): any[] {
-  return businesses.filter(business => {
-    // Filter out generic services
-    if (isGenericService(business.name)) {
-      console.log('[Associated Businesses] Removing generic service:', business.name);
-      return false;
-    }
-    
-    // Filter out low confidence
-    if (business.confidence < 0.65) {
-      console.log('[Associated Businesses] Removing low confidence:', business.name, business.confidence);
-      return false;
-    }
-    
-    return true;
-  });
+function toPartnerCard(
+  partner: DiscoveredPartner,
+  domain: string,
+  dns: DNSDataSection,
+  id: string,
+  source: 'ai' | 'fingerprint',
+): PartnerCardViewProps {
+  return {
+    id,
+    domain,
+    dnsData: dns,
+    aiData: {
+      type: partner.type as any,
+      name: partner.name,
+      evidence: partner.evidence,
+      confidence: partner.confidence,
+      url: partner.url,
+    },
+    mergedMetadata: {
+      discoveredAt: new Date().toISOString(),
+      sources: [source],
+      relevanceScore: partner.confidence,
+    },
+  }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // Parse and validate request body
     const body = await request.json()
-    const { domain, dnsData } = RequestSchema.parse(body)
+    const { domain: rawDomain, dnsData } = RequestSchema.parse(body)
+    const domain = normalizeDomain(rawDomain)
 
-    const MODEL = 'llama-3.3-70b-versatile'
-    console.log('[/api/partners] Request received:', { domain, modelToUse: MODEL })
+    console.log('[/api/partners] Request received:', { domain, model: MODEL })
 
-    // Rate limiting check
+    // Rate limiting
     const rateLimitKey = `partner-discovery:${domain}`
     const limitStatus = partnerDiscoveryRateLimiter(request, rateLimitKey)
-
     if (limitStatus.isLimited) {
-      logDomainSearch({
-        timestamp: new Date().toISOString(),
-        domain,
-        source: 'partner_discovery',
-        success: false,
-        errorType: 'rate_limited',
-      })
-
+      logDomainSearch({ timestamp: new Date().toISOString(), domain, source: 'partner_discovery', success: false, errorType: 'rate_limited' })
       return NextResponse.json(
-        {
-          success: false,
-          error: `Rate limit exceeded: ${limitStatus.count}/${limitStatus.limit} requests to this domain per hour`,
-          retryAfter: limitStatus.retryAfter,
-          retryable: true,
-        },
-        { status: 429 }
+        { success: false, error: `Rate limit exceeded: ${limitStatus.count}/${limitStatus.limit} per hour`, retryAfter: limitStatus.retryAfter, retryable: true },
+        { status: 429 },
       )
     }
 
     // Structure DNS data
     const structuredDNS = structureDNSData(dnsData)
+    const formattedDNS = formatDNSDataForAnalysis(structuredDNS)
 
-    // Scrape website content
-    console.log('[/api/partners] Scraping website content...')
-    const scrapedContent = await scrapeWebsiteContent(domain)
+    // Crawl website — BFS 3 levels deep, builds a compact knowledge digest
+    console.log('[/api/partners] Crawling website...')
+    const crawlResult = await crawlWebsite(domain)
 
-    if (!scrapedContent || scrapedContent.totalCharacters < 100) {
-      console.error('[/api/partners] Failed to scrape meaningful content')
-      logDomainSearch({
-        timestamp: new Date().toISOString(),
-        domain,
-        source: 'partner_discovery',
-        success: false,
-        errorType: 'scraping_failed',
-      })
-
+    if (!crawlResult || crawlResult.totalCharacters < 100) {
+      console.error('[/api/partners] Failed to crawl meaningful content')
+      logDomainSearch({ timestamp: new Date().toISOString(), domain, source: 'partner_discovery', success: false, errorType: 'scraping_failed' })
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Could not fetch website content',
-          details: 'Website may be unreachable or blocking automated requests',
-        },
-        { status: 500 }
+        { success: false, error: 'Could not fetch website content', details: 'Website may be unreachable or blocking automated requests' },
+        { status: 500 },
       )
     }
 
-    console.log('[/api/partners] ════════════════════════════════════════')
-    console.log('[/api/partners] SCRAPING RESULTS')
-    console.log('[/api/partners] Pages fetched:', scrapedContent.pages.length)
-    console.log('[/api/partners] Total characters:', scrapedContent.totalCharacters)
-    console.log('[/api/partners] Pages:', scrapedContent.pages.map(p => p.path).join(', '))
-    console.log('[/api/partners] ════════════════════════════════════════')
+    console.log(`[/api/partners] Crawled ${crawlResult.pages.length} pages (${crawlResult.totalCharacters} chars, digest: ${crawlResult.knowledgeDigest.length} chars)`)
+    console.log(`[/api/partners] Pages: ${crawlResult.pages.map((p: { path: string }) => p.path).join(', ')}`)
 
-    // Build enhanced user message with both DNS and website content
-    const formattedDNS = formatDNSDataForAnalysis(structuredDNS);
-    
-    const userMessage = `Analyze this domain and discover all related partners, vendors, and ecosystem participants.
+    // Fingerprinted services (confirmed from HTML resource scanning)
+    const fingerprintedServices = crawlResult.fingerprintedServices ?? []
+    const fingerprintNames = fingerprintedServices.map((s: { name: string }) => s.name)
 
-TARGET DOMAIN: ${domain}
+    // Content sent to AI — knowledge digest (high-signal extracted lines) + DNS.
+    // Digest is ~1,500–3,000 chars vs the full 20,000 chars, keeping token usage low.
+    const contentForAI =
+      (formattedDNS ? `DNS SIGNALS:\n${formattedDNS}\n\n` : '') +
+      `KNOWLEDGE DIGEST (extracted from ${crawlResult.pages.length} pages):\n${crawlResult.knowledgeDigest}`
 
-═══════════════════════════════════════════════════════════════
-DNS INFRASTRUCTURE & TECHNICAL PARTNERS
-═══════════════════════════════════════════════════════════════
+    // Run all 14 focused discovery calls in two parallel batches to respect
+    // Groq free-tier TPM limits (~7 calls per batch × ~2,200 tokens = ~15,400 tokens/batch).
+    console.log('[/api/partners] Launching discovery batch 1 (7 calls)...')
+    const [
+      techPartners, businessPartners, equipmentPartners, industryPartners, communityPartners,
+      mediaPartners, financePartners,
+    ] = await Promise.all([
+      runDiscoveryCall('tech-tools',    TECH_TOOLS_PROMPT,             contentForAI, domain, fingerprintNames),
+      runDiscoveryCall('business-rels', BUSINESS_RELATIONSHIPS_PROMPT, contentForAI, domain, fingerprintNames),
+      runDiscoveryCall('goods-equip',   GOODS_EQUIPMENT_PROMPT,        contentForAI, domain, fingerprintNames),
+      runDiscoveryCall('industry-assoc',INDUSTRY_ASSOCIATIONS_PROMPT,  contentForAI, domain, fingerprintNames),
+      runDiscoveryCall('community',     COMMUNITY_LOCAL_PROMPT,        contentForAI, domain, fingerprintNames),
+      runDiscoveryCall('media-pr',      MEDIA_PR_PROMPT,               contentForAI, domain, fingerprintNames),
+      runDiscoveryCall('finance-prof',  FINANCE_PROFESSIONAL_PROMPT,   contentForAI, domain, fingerprintNames),
+    ])
 
-The following DNS records reveal key infrastructure partners:
-${formattedDNS}
+    console.log('[/api/partners] Launching discovery batch 2 (7 calls)...')
+    const [
+      programPartners, softwarePartners, techPartnerResults, logisticsPartners,
+      staffTrainingPartners, facilityPartners, paymentPartners,
+    ] = await Promise.all([
+      runDiscoveryCall('programs',      PROGRAMS_TRAINING_PROMPT,      contentForAI, domain, fingerprintNames),
+      runDiscoveryCall('sw-integr',     SOFTWARE_INTEGRATIONS_PROMPT,  contentForAI, domain, fingerprintNames),
+      runDiscoveryCall('tech-partners', TECHNOLOGY_PARTNERS_PROMPT,    contentForAI, domain, fingerprintNames),
+      runDiscoveryCall('logistics',     LOGISTICS_SUPPLIERS_PROMPT,    contentForAI, domain, fingerprintNames),
+      runDiscoveryCall('staff-train',   STAFF_TRAINING_PROMPT,         contentForAI, domain, fingerprintNames),
+      runDiscoveryCall('facility-svc',  FACILITY_SERVICES_PROMPT,      contentForAI, domain, fingerprintNames),
+      runDiscoveryCall('payment-fin',   PAYMENT_FINANCING_PROMPT,      contentForAI, domain, fingerprintNames),
+    ])
 
-KEY: Analyze hosting providers, email services, registrars, and CDNs from these records.
-These are CONFIRMED infrastructure partners that should be included.
+    // Merge and deduplicate all discovered partners
+    const seenNames = new Set<string>(fingerprintNames.map((n: string) => n.toLowerCase()))
+    const aiCards: PartnerCardViewProps[] = []
+    let cardIndex = 0
 
-═══════════════════════════════════════════════════════════════
-WEBSITE CONTENT (${scrapedContent.pages.length} pages analyzed)
-═══════════════════════════════════════════════════════════════
-
-${scrapedContent.combinedText}
-
-═══════════════════════════════════════════════════════════════
-ANALYSIS REQUIREMENTS
-═══════════════════════════════════════════════════════════════
-
-From DNS Infrastructure:
-✓ Extract hosting provider(s) from A records (may require reverse DNS lookup knowledge)
-✓ Extract email service provider(s) from MX records (the domain after @ in MX value)
-✓ Extract name servers/registrar from NS records (organization owning the domain infrastructure)
-✓ Extract email security/SPF info from TXT records (SPF, DKIM, DMARC handlers)
-
-From Website Content:
-✓ Find embedded tools, payment processors, booking systems
-✓ Identify agency credits and partnerships
-✓ Extract technology platform mentions from privacy/terms pages
-✓ Find investor/corporate relationships
-
-CRITICAL: Do NOT filter out infrastructure partners found in DNS records. 
-These are confirmed technical dependencies.
-
-Return ONLY valid JSON matching the schema. No markdown, no code blocks.`
-
-    let groqResponse: string
-    try {
-      console.log('[/api/partners] Calling Groq with model:', MODEL)
-      console.log('[/api/partners] Prompt loaded, length:', PARTNER_DISCOVERY_PROMPT?.length || 'UNDEFINED')
-      console.log('[/api/partners] User message length:', userMessage.length)
-      
-      if (!PARTNER_DISCOVERY_PROMPT) {
-        throw new Error('PARTNER_DISCOVERY_PROMPT is undefined - prompt file import failed')
+    for (const partner of [
+      ...techPartners, ...businessPartners, ...equipmentPartners, ...industryPartners,
+      ...communityPartners, ...mediaPartners, ...financePartners, ...programPartners,
+      ...softwarePartners, ...techPartnerResults, ...logisticsPartners,
+      ...staffTrainingPartners, ...facilityPartners, ...paymentPartners,
+    ]) {
+      const key = partner.name.toLowerCase()
+      if (seenNames.has(key)) {
+        console.log(`[/api/partners] [DEDUP] ${partner.name}`)
+        continue
       }
-      
-      groqResponse = await callGroqWithRetry(
-        MODEL,
-        PARTNER_DISCOVERY_PROMPT,
-        userMessage,
-        3, // Increase retries to 3
-        4096, // Increase estimated output for detailed responses
-        {
-          temperature: 0.3, // Lower temperature for focused output
-          max_tokens: 4096, // Increase for detailed responses
-        }
-      )
-      console.log('[/api/partners] Groq response received, length:', groqResponse.length)
-    } catch (groqError) {
-      console.error('[/api/partners] Groq call failed:', groqError)
-      logDomainSearch({
-        timestamp: new Date().toISOString(),
-        domain,
-        source: 'partner_discovery',
-        success: false,
-        errorType: 'groq_call_failed',
-      })
-
-      const errorMsg = groqError instanceof Error ? groqError.message : 'Unknown Groq error'
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Failed to analyze domain with AI',
-          details: errorMsg,
-          retryable: true,
-        },
-        { status: 500 }
-      )
+      seenNames.add(key)
+      aiCards.push(toPartnerCard(partner, domain, structuredDNS, `${domain}-ai-${cardIndex++}`, 'ai'))
     }
 
-    // Parse JSON response
-    let parsedResponse: any
-    try {
-      // Clean up response (remove markdown code blocks if present)
-      const cleanedResponse = groqResponse
-        .replace(/^```json\n?/, '')
-        .replace(/\n?```$/, '')
-        .trim()
-
-      parsedResponse = JSON.parse(cleanedResponse)
-    } catch (parseError) {
-      logDomainSearch({
-        timestamp: new Date().toISOString(),
-        domain,
-        source: 'partner_discovery',
-        success: false,
-        errorType: 'json_parse_failed',
-      })
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Failed to parse AI response as JSON',
-          details: 'Response was not valid JSON',
-          retryable: true,
-        },
-        { status: 422 }
-      )
-    }
-
-    // Validate against schema
-    let validatedResponse: any
-    try {
-      console.log('[/api/partners] Raw Groq response:', groqResponse.substring(0, 500) + '...')
-      console.log('[/api/partners] Parsed response:', JSON.stringify(parsedResponse, null, 2))
-      validatedResponse = PartnerDiscoveryResponseSchema.parse(parsedResponse)
-    } catch (validationError) {
-      console.error('[/api/partners] Schema validation failed:')
-      console.error('[/api/partners] Validation error:', validationError)
-      console.error('[/api/partners] Parsed response was:', JSON.stringify(parsedResponse, null, 2))
-      
-      if (validationError instanceof z.ZodError) {
-        console.error('[/api/partners] Detailed Zod errors:')
-        validationError.errors.forEach((err, idx) => {
-          console.error(`  [${idx}] Path: ${err.path.join('.')}, Code: ${err.code}, Message: ${err.message}`)
-          const pathStr = err.path.join('.')
-          const value = parsedResponse
-          let current = value
-          for (const key of err.path) {
-            current = current?.[key]
-          }
-          console.error(`      Current value: ${JSON.stringify(current)}`)
-        })
-      }
-      
-      logDomainSearch({
-        timestamp: new Date().toISOString(),
-        domain,
-        source: 'partner_discovery',
-        success: false,
-        errorType: 'schema_validation_failed',
-      })
-
-      const zodError = validationError instanceof z.ZodError ? validationError.errors : []
-      console.error('[/api/partners] Zod errors:', zodError)
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'AI response did not match expected schema',
-          details: zodError,
-          retryable: true,
-        },
-        { status: 422 }
-      )
-    }
-
-// Convert nested partner_ecosystem to cards (filter low confidence & duplicates)
-    const allPartners: PartnerCardViewProps[] = []
-    const MIN_CONFIDENCE = 0.3
-    const seenPartnerNames = new Set<string>() // Track partner names to prevent duplicates
-
-    const partnerCategories: Record<string, string> = {
-      commercial_partners: 'commercial_vendor',
-      marketing_partners: 'marketing_agency',
-      technology_partners: 'technology_platform',
-      investors_corporate: 'investor_parent',
-      operational_adjacencies: 'operational_adjacency',
-      developer_agency_partners: 'developer_agency',
-      email_security_providers: 'email_security_provider',
-    }
-
-    console.log('\n[/api/partners] ════════════════════════════════════════════════════════════════════')
-    console.log('[/api/partners] PARTNER DISCOVERY RESULTS')
-    console.log('[/api/partners] Domain:', domain)
-    console.log('[/api/partners] ════════════════════════════════════════════════════════════════════')
-
-    Object.entries(partnerCategories).forEach(([category, type]) => {
-      const partners = validatedResponse.partner_ecosystem[category as keyof typeof validatedResponse.partner_ecosystem] || []
-      console.log(`\n[/api/partners] ${category.toUpperCase()}: ${partners.length} found`)
-      
-      partners.forEach((partner: any, index: number) => {
-        // Filter out low confidence partners
-        if (partner.confidence < MIN_CONFIDENCE) {
-          console.log(`  [FILTERED - Low Confidence] ${partner.name} (confidence: ${partner.confidence})`)
-          return
-        }
-
-        // Skip duplicates (same partner name already added)
-        const partnerNameLower = partner.name.toLowerCase()
-        if (seenPartnerNames.has(partnerNameLower)) {
-          console.log(`  [FILTERED - Duplicate] ${partner.name}`)
-          return
-        }
-        seenPartnerNames.add(partnerNameLower)
-
-        console.log(`  ✓ ${partner.name}`)
-        console.log(`    Type: ${type}`)
-        console.log(`    Evidence: ${partner.evidence}`)
-        console.log(`    Confidence: ${partner.confidence}`)
-        console.log(`    Relationship: ${partner.relationship || 'N/A'}`)
-
-        const cardId = `${domain}-${type}-${index}`
-        const card: PartnerCardViewProps = {
-          id: cardId,
-          domain,
-          dnsData: structuredDNS,
-          aiData: {
-            type: type as any,
-            name: partner.name,
-            evidence: partner.evidence,
-            confidence: partner.confidence,
-            relationship: partner.relationship,
-            url: partner.url,
-          },
-          mergedMetadata: {
-            discoveredAt: validatedResponse.timestamp,
-            sources: ['dns', 'ai'],
-            relevanceScore: partner.confidence,
-          },
-        }
-        allPartners.push(card)
-      })
-      })
-
-    console.log(`\n[/api/partners] Total partners extracted: ${allPartners.length}`)
-
-    logDomainSearch({
-      timestamp: new Date().toISOString(),
+    // Fingerprint cards (highest confidence — confirmed via HTML scanning)
+    const fingerprintCards: PartnerCardViewProps[] = (fingerprintedServices as FingerprintedService[]).map((svc, i) => ({
+      id: `${domain}-fp-${i}`,
       domain,
-      source: 'partner_discovery',
-      success: true,
-    })
+      dnsData: structuredDNS,
+      aiData: {
+        type: svc.type as any,
+        name: svc.name,
+        evidence: `Confirmed embedded integration via ${svc.sourceUrl.substring(0, 60)}`,
+        confidence: svc.confidence,
+        relationship: svc.relationship,
+      },
+      mergedMetadata: {
+        discoveredAt: new Date().toISOString(),
+        sources: ['fingerprint'],
+        relevanceScore: svc.confidence,
+      },
+    }))
 
-    // Convert connections/deep_connections to cards as well
-    const connections = validatedResponse.connections || validatedResponse.deep_connections || []
-    console.log(`\n[/api/partners] DEEP CONNECTIONS: ${connections.length} found`)
-    connections.forEach((conn: any) => {
-      console.log(`  ✓ ${conn.name} (${conn.category})`)
-      console.log(`    Evidence: ${conn.evidence}`)
-      console.log(`    Why it matters: ${conn.why_it_matters}`)
-      console.log(`    Confidence: ${conn.confidence}`)
-    })
-    
-    const connectionCards: PartnerCardViewProps[] = connections.map((connection: any, index: number) => {
-      const cardId = `${domain}-connection-${index}`
-      const card: PartnerCardViewProps = {
-        id: cardId,
-        domain,
-        dnsData: structuredDNS,
-        aiData: {
-          type: (connection.category || 'technology_platform') as any,
-          name: connection.name,
-          evidence: connection.evidence,
-          confidence: connection.confidence || 0.7,
-          relationship: connection.why_it_matters || connection.category,
-          url: '',
-        },
-        mergedMetadata: {
-          discoveredAt: validatedResponse.timestamp,
-          sources: ['ai'],
-          relevanceScore: connection.confidence || 0.7,
-        },
-      }
-      return card
-    })
+    // Self card — always present for generating client-facing emails
+    const companyName = domain
+      .replace(/^www\./, '')
+      .split('.')[0]
+      .replace(/[-_]/g, ' ')
+      .split(' ')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ')
 
-    const finalPartners = [...allPartners, ...connectionCards]
-    
-    // Add the target domain itself as a selectable partner for client email generation
-    const companyName = domain.replace(/^www\./, '').split('.')[0].replace(/[-_]/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
     const selfCard: PartnerCardViewProps = {
       id: `${domain}-self-0`,
       domain,
@@ -491,184 +271,48 @@ Return ONLY valid JSON matching the schema. No markdown, no code blocks.`
       aiData: {
         type: 'client_email',
         name: `${companyName} (Client Emails)`,
-        evidence: 'Target domain itself for generating client-focused emails using company branding',
+        evidence: 'Target domain for generating client-focused emails using company branding',
         confidence: 1.0,
         relationship: 'Client Communication',
         url: `https://${domain}`,
       },
       mergedMetadata: {
-        discoveredAt: validatedResponse.timestamp,
+        discoveredAt: new Date().toISOString(),
         sources: ['target_domain'],
         relevanceScore: 1.0,
       },
     }
-    finalPartners.push(selfCard)
-    
-    console.log('\n[/api/partners] ════════════════════════════════════════════════════════════════════')
-    console.log(`[/api/partners] FINAL RESULT: ${finalPartners.length} partners returned`)
-    console.log('[/api/partners] Partners breakdown:')
-    console.log(`  - From partner_ecosystem: ${allPartners.length}`)
-    console.log(`  - From connections: ${connectionCards.length}`)
-    console.log(`  - Self (target domain): 1`)
-    console.log('[/api/partners] Partner card details:')
-    finalPartners.forEach((card, idx) => {
-      console.log(`  [${idx}] ${card.aiData.name} (${card.aiData.type}) - Confidence: ${card.aiData.confidence}`)
+
+    const finalPartners = [...fingerprintCards, ...aiCards, selfCard]
+
+    console.log('\n[/api/partners] ══════════════════════════════════════════')
+    console.log(`[/api/partners] FINAL: ${finalPartners.length} cards`)
+    console.log(`  Fingerprinted: ${fingerprintCards.length}`)
+    console.log(`  AI discovered: ${aiCards.length} (tech: ${techPartners.length}, biz: ${businessPartners.length}, equip: ${equipmentPartners.length}, industry: ${industryPartners.length}, community: ${communityPartners.length}, media: ${mediaPartners.length}, finance: ${financePartners.length}, programs: ${programPartners.length}, sw-integr: ${softwarePartners.length}, tech-partners: ${techPartnerResults.length}, logistics: ${logisticsPartners.length}, staff-train: ${staffTrainingPartners.length}, facility: ${facilityPartners.length}, payment: ${paymentPartners.length})`)
+    console.log(`  Self card: 1`)
+    finalPartners.forEach((c, i) => {
+      console.log(`  [${i}] ${c.aiData.name} (${c.aiData.type}) confidence=${c.aiData.confidence}`)
     })
-    console.log('[/api/partners] ════════════════════════════════════════════════════════════════════\n')
+    console.log('[/api/partners] ══════════════════════════════════════════\n')
 
-    // ═══════════════════════════════════════════════════════════════════════════════════════════════
-    // PHASE 2: Discover Associated Businesses (deeper connections)
-    // ═══════════════════════════════════════════════════════════════════════════════════════════════
-    console.log('[/api/partners] PHASE 2: Discovering associated businesses...')
-    
-    let associatedBusinesses: any[] = []
-    try {
-      // Build list of already-found partners to avoid duplicates
-      const existingPartnerNames = finalPartners
-        .map(p => p.aiData.name.toLowerCase())
-        .filter(name => name.length > 0)
-      
-      const associatedBusinessesMessage = `Domain: ${domain}
+    logDomainSearch({ timestamp: new Date().toISOString(), domain, source: 'partner_discovery', success: true })
 
-Already discovered (exclude): ${existingPartnerNames.length > 0 ? existingPartnerNames.join(', ') : 'none'}
-
-Website content:
-${scrapedContent.combinedText}
-
-Find specific named businesses associated with this website. Return JSON only.`
-
-      console.log('[/api/partners] Calling Groq for associated businesses discovery...')
-      const associatedBusinessesResponse = await callGroqWithRetry(
-        MODEL,
-        ASSOCIATED_BUSINESSES_PROMPT,
-        associatedBusinessesMessage,
-        2,
-        1024,
-        {
-          temperature: 0.2,
-          max_tokens: 1024,
-        }
-      )
-      
-      console.log('[/api/partners] Associated businesses response length:', associatedBusinessesResponse.length)
-      
-      // Parse associated businesses response
-      try {
-        const cleanedResponse = associatedBusinessesResponse
-          .replace(/^```json\n?/, '')
-          .replace(/\n?```$/, '')
-          .trim()
-        
-        const parsedAssociated = JSON.parse(cleanedResponse)
-        
-        // Data repair: Fix common field name errors
-        let repaired = parsedAssociated
-        
-        // If LLM used "connections" instead of "associated_businesses", rename it
-        if (repaired.connections && !repaired.associated_businesses) {
-          console.log('[Associated Businesses] WARNING: LLM used "connections" instead of "associated_businesses", auto-repairing...')
-          repaired.associated_businesses = repaired.connections
-          delete repaired.connections
-        }
-        
-        // If items have "category" instead of "type", rename them
-        if (repaired.associated_businesses && Array.isArray(repaired.associated_businesses)) {
-          repaired.associated_businesses = repaired.associated_businesses.map((business: any) => {
-            if (business.category && !business.type) {
-              console.log(`[Associated Businesses] WARNING: Item "${business.name}" has "category" instead of "type", auto-repairing...`)
-              return {
-                ...business,
-                type: business.category, // Try to use the category value as type
-                category: undefined,
-              }
-            }
-            return business
-          }).filter((business: any) => business) // Remove undefined entries
-        }
-        
-        const validatedAssociated = AssociatedBusinessesResponseSchema.parse(repaired)
-        
-        console.log('[Associated Businesses] Raw AI Response:')
-        validatedAssociated.associated_businesses.forEach((business, idx) => {
-          const willInclude = !isGenericService(business.name) && business.confidence >= 0.65
-          console.log(`  ${idx + 1}. ${business.name} (${business.type}) - Confidence: ${business.confidence}`)
-          console.log(`     Will include: ${willInclude}`)
-          console.log(`     Evidence: ${business.evidence.substring(0, 100)}...`)
-        })
-        
-        // Apply filtering to remove generic services
-        const filteredBusinesses = filterAssociatedBusinesses(validatedAssociated.associated_businesses)
-        
-        console.log('[Associated Businesses] After Filtering:')
-        filteredBusinesses.forEach((business, idx) => {
-          console.log(`  ${idx + 1}. ${business.name} - Confidence: ${business.confidence}`)
-        })
-        
-        // Take only top 5 after filtering
-        associatedBusinesses = filteredBusinesses.slice(0, 5)
-        
-        console.log('[/api/partners] Associated businesses discovered:', associatedBusinesses.length)
-        console.log('[/api/partners] Associated businesses final list:')
-        associatedBusinesses.forEach((business, idx) => {
-          console.log(`  [${idx}] ${business.name} (${business.type}) - Confidence: ${business.confidence}`)
-          console.log(`    Relationship: ${business.relationship}`)
-          console.log(`    Evidence: ${business.evidence.substring(0, 120)}...`)
-        })
-      } catch (parseError) {
-        console.error('[/api/partners] Failed to parse associated businesses response:')
-        
-        // Detailed error logging
-        if (parseError instanceof z.ZodError) {
-          console.error('[/api/partners] Schema validation failed. Errors:')
-          parseError.errors.forEach((err, idx) => {
-            console.error(`  [${idx}] Path: ${err.path.join('.')}, Code: ${err.code}, Message: ${err.message}`)
-            if (err.code === 'invalid_enum_value') {
-              console.error(`       Received value: "${err.received}", Expected: ${JSON.stringify(err.options)}`)
-            }
-          })
-        } else if (parseError instanceof SyntaxError) {
-          console.error('[/api/partners] JSON parsing error:', (parseError as SyntaxError).message)
-          console.error('[/api/partners] Raw response (first 500 chars):', associatedBusinessesResponse.substring(0, 500))
-        } else {
-          console.error('[/api/partners] Unexpected error:', parseError)
-        }
-        
-        // Continue without associated businesses
-      }
-    } catch (associatedError) {
-      console.error('[/api/partners] Error discovering associated businesses:', associatedError)
-      // Continue without associated businesses
-    }
-
-    const responseData = {
+    return NextResponse.json({
       success: true,
       data: {
         domain,
         dnsData: structuredDNS,
-        scrapedPages: scrapedContent.pages.map(p => ({
-          path: p.path,
-          scrapedAt: p.scrapedAt
-        })),
+        scrapedPages: crawlResult.pages.map((p: { path: string; scrapedAt: string }) => ({ path: p.path, scrapedAt: p.scrapedAt })),
         aiPartners: finalPartners,
-        associatedBusinesses: associatedBusinesses,
+        associatedBusinesses: [],
         validatedAt: new Date().toISOString(),
       },
-    }
-    
-    console.log('[/api/partners] Response contains:', responseData.data.aiPartners.length, 'cards in aiPartners array')
-    console.log('[/api/partners] Response contains:', responseData.data.associatedBusinesses.length, 'associated businesses')
-    
-    return NextResponse.json(responseData)
+    })
   } catch (error) {
     console.error('[/api/partners] Error:', error)
-
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
+      { success: false, error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 },
     )
   }
 }

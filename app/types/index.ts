@@ -1,5 +1,4 @@
 import type { ReactNode } from "react"
-import type { PartnerDiscoveryResponse, Partner } from "@/prompts/partner-discovery/partner-discovery.v1.schema"
 
 // Website Design Data - extracted from target company
 export interface TargetWebsiteDesign {
@@ -79,12 +78,13 @@ export interface DNSDataSection {
 
 // AI Data Section - single discovered relationship
 export interface AIDataSection {
-  type: 'commercial_vendor' | 'marketing_agency' | 'technology_platform' | 'investor_parent' | 'operational_adjacency' | 'developer_agency' | 'client_email'
+  type: 'commercial_vendor' | 'marketing_agency' | 'technology_platform' | 'investor_parent' | 'operational_adjacency' | 'developer_agency' | 'client_email' | 'email_security_provider' | 'equipment_supplier' | 'industry_association' | 'community_partner' | 'media_partner' | 'professional_service' | 'licensed_program' | 'software_integration' | 'technology_partner' | 'logistics_supplier' | 'staff_training' | 'facility_service' | 'payment_financing'
   name: string
   evidence: string
   confidence: number
   relationship?: string
   url?: string
+  isDNS?: boolean
 }
 
 // Partner Card View Model - NEVER FLATTENED
@@ -95,7 +95,7 @@ export interface PartnerCardViewProps {
   aiData: AIDataSection
   mergedMetadata: {
     discoveredAt: string
-    sources: ('dns' | 'ai')[]
+    sources: ('dns' | 'ai' | 'target_domain' | 'fingerprint')[]
     relevanceScore?: number
   }
 }
@@ -122,6 +122,7 @@ export interface PartnersAPIResponse extends APIResponse<{
   domain: string
   dnsData: DNSDataSection
   aiPartners: PartnerCardViewProps[]
+  associatedBusinesses: any[]
   validatedAt: string
 }> {}
 

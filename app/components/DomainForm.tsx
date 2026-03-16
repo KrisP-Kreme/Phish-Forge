@@ -20,7 +20,7 @@ interface DomainFormProps {
   isThinking?: boolean
   onError?: (error: string) => void
   onSuccess?: () => void
-  onPartnersDiscovered?: (partners: any[], dnsData?: any) => void
+  onPartnersDiscovered?: (partners: any[], dnsData?: any, associatedBusinesses?: any[]) => void
 }
 
 export default function DomainForm({ 
@@ -148,7 +148,7 @@ export default function DomainForm({
         },
         body: JSON.stringify({
           domain: value.trim(),
-          dnsData: dnsData.result || {},
+          dnsData: dnsData,
         }),
       })
 
@@ -160,7 +160,11 @@ export default function DomainForm({
       const partnersData = await partnersResponse.json()
 
       if (partnersData.success && partnersData.data?.aiPartners) {
-        onPartnersDiscovered?.(partnersData.data.aiPartners, dnsData)
+        onPartnersDiscovered?.(
+          partnersData.data.aiPartners,
+          dnsData,
+          partnersData.data.associatedBusinesses ?? [],
+        )
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to analyze domain'

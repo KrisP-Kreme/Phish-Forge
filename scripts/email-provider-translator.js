@@ -690,7 +690,7 @@ function generateJSONReport(analysisResult) {
  * @returns {string} - Formatted string for console output
  */
 function formatReportForConsole(report) {
-  if (!report.success === false) {
+  if (report.success === false) {
     return `❌ Analysis Failed: ${report.error}`;
   }
 

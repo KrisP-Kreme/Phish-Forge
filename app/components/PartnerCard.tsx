@@ -16,12 +16,26 @@ interface PartnerCardProps {
 
 // Map type to human-readable label and color
 const typeConfig: Record<string, { label: string; color: string }> = {
-  commercial_vendor: { label: 'Commercial Vendor', color: 'bg-blue-100 text-blue-800' },
-  marketing_agency: { label: 'Marketing Agency', color: 'bg-purple-100 text-purple-800' },
-  technology_platform: { label: 'Tech Platform', color: 'bg-cyan-100 text-cyan-800' },
-  investor_parent: { label: 'Investor/Parent', color: 'bg-green-100 text-green-800' },
-  operational_adjacency: { label: 'Operational', color: 'bg-orange-100 text-orange-800' },
-  developer_agency: { label: 'Developer Agency', color: 'bg-pink-100 text-pink-800' },
+  commercial_vendor:      { label: 'Commercial Vendor', color: 'bg-blue-100 text-blue-800' },
+  marketing_agency:       { label: 'Marketing Agency',  color: 'bg-purple-100 text-purple-800' },
+  technology_platform:    { label: 'Tech Platform',     color: 'bg-cyan-100 text-cyan-800' },
+  investor_parent:        { label: 'Investor/Parent',   color: 'bg-green-100 text-green-800' },
+  operational_adjacency:  { label: 'Operational',       color: 'bg-orange-100 text-orange-800' },
+  developer_agency:       { label: 'Developer Agency',  color: 'bg-pink-100 text-pink-800' },
+  email_security_provider:{ label: 'Email Security',    color: 'bg-amber-100 text-amber-800' },
+  client_email:           { label: 'Client Emails',     color: 'bg-indigo-100 text-indigo-800' },
+  equipment_supplier:     { label: 'Equipment/Goods',   color: 'bg-lime-100 text-lime-800' },
+  industry_association:   { label: 'Industry Body',     color: 'bg-teal-100 text-teal-800' },
+  community_partner:      { label: 'Community/Gov',     color: 'bg-rose-100 text-rose-800' },
+  media_partner:          { label: 'Media / PR',         color: 'bg-violet-100 text-violet-800' },
+  professional_service:   { label: 'Professional Svc',   color: 'bg-sky-100 text-sky-800' },
+  licensed_program:       { label: 'Licensed Program',   color: 'bg-yellow-100 text-yellow-800' },
+  software_integration:   { label: 'SaaS Integration',   color: 'bg-cyan-100 text-cyan-800' },
+  technology_partner:     { label: 'Tech Partner',       color: 'bg-blue-100 text-blue-800' },
+  logistics_supplier:     { label: 'Logistics',          color: 'bg-stone-100 text-stone-800' },
+  staff_training:         { label: 'Staff Training',     color: 'bg-emerald-100 text-emerald-800' },
+  facility_service:       { label: 'Facility Service',   color: 'bg-zinc-100 text-zinc-800' },
+  payment_financing:      { label: 'Payment / BNPL',     color: 'bg-green-100 text-green-800' },
 }
 
 // Confidence indicator
@@ -44,11 +58,13 @@ function ConfidenceIndicator({ confidence }: { confidence: number }) {
 
 // DNS Data Section
 function DNSSection({ dnsData }: { dnsData: PartnerCardViewProps['dnsData'] }) {
-  const hasData = dnsData.aRecords.length > 0 || dnsData.mxRecords.length > 0 || dnsData.nsRecords.length > 0
+  const hasData =
+    dnsData.aRecords.length > 0 ||
+    dnsData.mxRecords.length > 0 ||
+    dnsData.nsRecords.length > 0 ||
+    dnsData.txtRecords.length > 0
 
-  if (!hasData) {
-    return null
-  }
+  if (!hasData) return null
 
   return (
     <div className="mt-4 pt-4 border-t border-gray-200">
@@ -72,6 +88,16 @@ function DNSSection({ dnsData }: { dnsData: PartnerCardViewProps['dnsData'] }) {
             {dnsData.nsRecords.length > 2 && ` +${dnsData.nsRecords.length - 2}`}
           </div>
         )}
+        {dnsData.txtRecords.length > 0 && (
+          <div>
+            <span className="font-medium">Email Security:</span>{' '}
+            {dnsData.txtRecords
+              .filter((r) => /^v=spf|dkim|dmarc/i.test(r))
+              .slice(0, 2)
+              .map((r) => r.substring(0, 40) + (r.length > 40 ? '…' : ''))
+              .join(' | ') || `${dnsData.txtRecords.length} TXT record${dnsData.txtRecords.length > 1 ? 's' : ''}`}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -80,7 +106,7 @@ function DNSSection({ dnsData }: { dnsData: PartnerCardViewProps['dnsData'] }) {
 // AI Data Section
 function AISection({ aiData }: { aiData: PartnerCardViewProps['aiData'] }) {
   const config = typeConfig[aiData.type] || typeConfig.commercial_vendor
-  const isDNS = (aiData as any).isDNS
+  const isDNS = aiData.isDNS
 
   return (
     <div className="space-y-1.5">
@@ -112,7 +138,7 @@ function AISection({ aiData }: { aiData: PartnerCardViewProps['aiData'] }) {
         <ConfidenceIndicator confidence={aiData.confidence} />
       </div>
 
-      {aiData.url && !isDNS && (
+      {aiData.url && (
         <a
           href={aiData.url}
           target="_blank"
@@ -135,7 +161,7 @@ export default function PartnerCard({
   isSelected = false,
   isLoading = false,
 }: PartnerCardProps) {
-  const isDNS = (partner.aiData as any).isDNS
+  const isDNS = partner.aiData.isDNS
 
   return (
     <motion.div

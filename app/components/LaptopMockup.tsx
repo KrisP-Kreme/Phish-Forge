@@ -22,6 +22,7 @@ export default function LaptopMockup({ children, onTyping, onError }: LaptopMock
   const [rodingMoveOut, setRodingMoveOut] = useState(false)
   const [partners, setPartners] = useState<PartnerCardViewProps[]>([])
   const [dnsData, setDnsData] = useState<any>(null)
+  const [associatedBusinesses, setAssociatedBusinesses] = useState<any[]>([])
   const [currentDomain, setCurrentDomain] = useState<string>('')
   const containerRef = useRef<HTMLDivElement>(null)
   const screenRef = useRef<HTMLDivElement>(null)
@@ -373,10 +374,10 @@ export default function LaptopMockup({ children, onTyping, onError }: LaptopMock
                 isThinking={laptopStateRef.current === 'thinking'} 
                 onError={onError} 
                 onSuccess={() => setIsFormSuccess(true)}
-                onPartnersDiscovered={(discoveredPartners, dns) => {
+                onPartnersDiscovered={(discoveredPartners, dns, associated = []) => {
                   setPartners(discoveredPartners)
                   setDnsData(dns)
-                  // Get domain from partners or DNS data
+                  setAssociatedBusinesses(associated)
                   const domain = discoveredPartners[0]?.domain || dns?.result?.domainCheck?.domain || dns?.domainCheck?.domain || ''
                   setCurrentDomain(domain)
                 }}
@@ -461,6 +462,7 @@ export default function LaptopMockup({ children, onTyping, onError }: LaptopMock
               domain={currentDomain}
               partners={partners}
               dnsData={dnsData}
+              associatedBusinesses={associatedBusinesses}
             />
           </motion.div>
         )}

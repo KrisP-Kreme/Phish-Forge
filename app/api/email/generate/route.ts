@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { callGroqWithRetry } from '@/lib/groq'
+import { callGroqWithRetry, cleanJsonResponse } from '@/lib/groq'
 import { emailGenerationRateLimiter } from '@/lib/rate-limit'
 import { logDomainSearch } from '@/lib/logging'
 import {
@@ -210,8 +210,7 @@ Provide a comprehensive OSINT analysis following the schema exactly.`
         { temperature: 0.2 }
       )
 
-      const cleanedOsint = osintResponse.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim()
-      osintAnalysis = JSON.parse(cleanedOsint)
+      osintAnalysis = JSON.parse(cleanJsonResponse(osintResponse))
       console.log('[/api/email/generate] OSINT analysis completed')
     } catch (osintError) {
       console.warn('[/api/email/generate] OSINT analysis failed, continuing without it:', osintError)
